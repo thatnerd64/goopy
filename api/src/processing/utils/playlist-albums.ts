@@ -3,16 +3,24 @@ import { getAppInstance } from "../../helpers/app-instance";
 import { fetchAllTidalPages } from "../../helpers/fetch-tidal";
 import { ProcessingItemType, TiddlConfig } from "../../types";
 
+import {
+  describeSkipped,
+  getExplicitPreference,
+  resolveEditions,
+} from "./explicit-filter";
 import { logs } from "./logs";
 
 const SUPPORTED_TYPES = ["playlist", "mix", "favorite_tracks"] as const;
 
 type TrackItem = {
   item?: {
+    explicit?: boolean;
     album?: { id: number; title?: string };
     artist?: { name?: string };
   };
 };
+
+type AlbumInfo = { artist: string; title: string; explicit: boolean };
 
 /**
  * Fetches all tracks from Tidal API with pagination (max 100 per page).
@@ -47,19 +55,23 @@ function buildBaseUrl(
 /**
  * Extracts unique album IDs from track items.
  */
-function extractAlbums(
-  items: TrackItem[],
-): Map<number, { artist: string; title: string }> {
-  const albumsMap = new Map<number, { artist: string; title: string }>();
+function extractAlbums(items: TrackItem[]): Map<number, AlbumInfo> {
+  const albumsMap = new Map<number, AlbumInfo>();
 
   for (const trackItem of items) {
     if (trackItem.item?.album?.id) {
       const albumId = trackItem.item.album.id;
-      if (!albumsMap.has(albumId)) {
+      const existing = albumsMap.get(albumId);
+      if (!existing) {
         albumsMap.set(albumId, {
           artist: trackItem.item.artist?.name || "",
           title: trackItem.item.album.title || "",
+          explicit: !!trackItem.item.explicit,
         });
+      } else if (trackItem.item.explicit) {
+        // Tracks only carry their own flag: an album is explicit as soon as one
+        // of its tracks is
+        existing.explicit = true;
       }
     }
   }
@@ -107,28 +119,40 @@ export async function getPlaylistAlbums(itemId: string): Promise<void> {
     );
 
     if (albumsMap.size > 0) {
-      const newItems: ProcessingItemType[] = [];
-
-      for (const [albumId, albumInfo] of albumsMap.entries()) {
-        newItems.push({
+      // A playlist can reference both editions of the same album
+      const preference = getExplicitPreference();
+      const { selected, skipped } = resolveEditions(
+        [...albumsMap.entries()].map(([albumId, albumInfo]) => ({
           id: albumId,
-          url: `album/${albumId}`,
-          type: "album",
-          status: "queue_download",
-          loading: false,
-          artist: albumInfo.artist,
-          title: albumInfo.title,
-          quality: item.quality,
-          error: false,
-          source: "tidarr",
-        });
+          ...albumInfo,
+        })),
+        app.locals.processingStack.data,
+        preference,
+      );
+
+      if (skipped.length > 0) {
+        logs(itemId, describeSkipped(skipped, preference));
       }
+
+      const newItems: ProcessingItemType[] = selected.map((album) => ({
+        id: String(album.id),
+        url: `album/${album.id}`,
+        type: "album",
+        status: "queue_download",
+        loading: false,
+        artist: album.artist,
+        title: album.title,
+        explicit: album.explicit,
+        quality: item.quality,
+        error: false,
+        source: "tidarr",
+      }));
 
       await app.locals.processingStack.actions.addItems(newItems);
 
       logs(
         itemId,
-        `✅ [PLAYLIST_ALBUMS] Successfully added ${albumsMap.size} albums to queue`,
+        `✅ [PLAYLIST_ALBUMS] Successfully added ${newItems.length} albums to queue`,
       );
     } else {
       logs(itemId, `⚠️ [PLAYLIST_ALBUMS] No albums found in ${label}`);

@@ -3,6 +3,7 @@ import { Express } from "express";
 import { tidalDL } from "../../services/tiddl";
 import { ProcessingItemType } from "../../types";
 import { getArtistAlbums } from "../utils/artist-discography";
+import { getExplicitPreference } from "../utils/explicit-filter";
 import { getFavoriteAlbums } from "../utils/favorite-albums-to-queue";
 import { logs } from "../utils/logs";
 import {
@@ -57,6 +58,13 @@ export async function handleDownload(
     await app.locals.processingStack.actions.removeItem(item.id);
     // removeItem triggers processQueue internally — no need to call onComplete
     return;
+  }
+
+  if (item.type === "artist" && getExplicitPreference() !== "both") {
+    logs(
+      item.id,
+      `⚠️ [EXPLICIT] EXPLICIT_PREFERENCE is not applied with ARTIST_SINGLE_DOWNLOAD=true: tiddl downloads every edition (clean and explicit) of each album.`,
+    );
   }
 
   // Handle favorite_albums type: expand into individual album queue items

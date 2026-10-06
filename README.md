@@ -28,6 +28,7 @@ Tidarr is a Docker image that provides a web interface to download up to **24-bi
   - [Lock quality selector](#lock-quality-selector)
   - [Playlist options](#playlist-options)
   - [Discography options](#discography-download-mode)
+  - [Explicit / clean editions](#explicit--clean-editions)
   - [Rate-limited download mode](#rate-limited-download-mode)
   - [Sync playlists and mixes](#sync-playlists-and-mixes)
   - [Custom CSS](#custom-css)
@@ -287,6 +288,35 @@ environment:
 
 > [!NOTE]
 > When `ARTIST_SINGLE_DOWNLOAD=true`, the artist is passed directly to tiddl as a single download job. This is faster but provides less granular error handling — if one album fails, the entire job may be affected.
+
+### Explicit / clean editions
+
+Tidal publishes the clean ("edited") and the explicit edition of many albums as **two separate albums** with the same artist and title. With the default folder template both end up in the same folder, so clean and explicit tracks get mixed.
+
+When Tidarr queues albums in bulk (artist discography, favorite albums, `PLAYLIST_ALBUMS`), it keeps **one edition per album**. Choose which one with `EXPLICIT_PREFERENCE`:
+
+```yaml
+environment:
+  - ...
+  - EXPLICIT_PREFERENCE=explicit   # default: explicit edition if it exists, else the clean one
+  # - EXPLICIT_PREFERENCE=clean    # clean edition if it exists, else the explicit one
+  # - EXPLICIT_PREFERENCE=both     # keep every edition (see below)
+```
+
+- Editions are matched on artist + title, ignoring markers such as `(Explicit)`, `[Clean Version]`, `(Edited)`. "Deluxe", "Remastered", etc. are different releases and are kept.
+- An album that only exists in one edition is always downloaded.
+- An edition that is already in the queue (for example one you queued by hand) wins: the other edition is not added on top of it.
+- Albums you download one by one from the interface are never filtered: you chose that edition.
+
+To really keep both editions, use `EXPLICIT_PREFERENCE=both` and tell tiddl to separate them in your `config.toml`:
+
+```toml
+[templates]
+default = "{album.artist}/{album.date:%Y} - {album.title} {album.explicit:long}/{item.number:02d}. {item.title_version}"
+```
+
+> [!NOTE]
+> With `ARTIST_SINGLE_DOWNLOAD=true` the whole artist is handed to tiddl, which downloads every edition: `EXPLICIT_PREFERENCE` cannot apply (a warning is logged).
 
 ### Rate-limited download mode
 

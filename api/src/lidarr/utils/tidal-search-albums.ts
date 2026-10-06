@@ -68,6 +68,7 @@ export async function addAlbumToQueue(
       id: id,
       artist: getAlbumArtist(albumData),
       title: albumData.title,
+      explicit: albumData.explicit as boolean | undefined,
       type: "album" as const,
       status: "queue_download" as const,
       quality: tiddlQuality,

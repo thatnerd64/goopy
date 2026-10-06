@@ -4,6 +4,25 @@ Tidarr notable changes.
 
 [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) format.
 
+## 📦 Unreleased
+
+### 🚀 Added
+
+- [API] New `EXPLICIT_PREFERENCE` env var (`explicit` | `clean` | `both`, default `explicit`). Tidal lists the clean and explicit editions of an album as two separate albums: Tidarr now keeps **one edition per album** when it expands an artist discography, favorite albums, or playlist/mix albums (`PLAYLIST_ALBUMS`), instead of mixing clean and explicit tracks in the same folder
+- [API] Albums already in the queue (e.g. queued manually) are checked too: the other edition of the same album is no longer added on top of it
+- [API] Queue items now carry the Tidal `explicit` flag
+- [API] First unit tests (vitest) + `pnpm test`, run in CI
+
+### 🖍 Changes
+
+- [API] Discography: the old title-only de-duplication (which kept whichever edition Tidal listed first, and merged same-titled albums of different artists) is replaced by the artist + edition-aware selection above
+- [API] Playlist albums are queued with string IDs like every other item
+- [Doc] Default `config.toml` documents `{album.explicit}` to keep editions in separate folders with `EXPLICIT_PREFERENCE=both`
+
+### ⚠️ Notes
+
+- With `ARTIST_SINGLE_DOWNLOAD=true` the artist is handed to tiddl as a single job: every edition is downloaded and `EXPLICIT_PREFERENCE` cannot apply (a warning is logged)
+
 ## 📦 1.2.7
 
 ### 🚀 Added

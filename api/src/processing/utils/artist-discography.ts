@@ -3,14 +3,24 @@ import { getAppInstance } from "../../helpers/app-instance";
 import { fetchAllTidalPages } from "../../helpers/fetch-tidal";
 import { ProcessingItemType, TiddlConfig } from "../../types";
 
+import {
+  describeSkipped,
+  getExplicitPreference,
+  resolveEditions,
+} from "./explicit-filter";
 import { logs } from "./logs";
 
 type AlbumItem = {
   id: number;
   title: string;
+  explicit?: boolean;
   artist?: { name?: string };
   artists?: Array<{ name?: string }>;
 };
+
+function albumArtist(album: AlbumItem, fallback = ""): string {
+  return album.artists?.[0]?.name || album.artist?.name || fallback;
+}
 
 async function fetchAlbumsByFilter(
   artistId: string,
@@ -23,18 +33,6 @@ async function fetchAlbumsByFilter(
   return fetchAllTidalPages<AlbumItem>(baseUrl, "albums");
 }
 
-function deduplicateAlbums(albums: AlbumItem[]): AlbumItem[] {
-  const seenIds = new Set<number>();
-  const seenTitles = new Set<string>();
-  return albums.filter((album) => {
-    const title = album.title.toLowerCase().trim();
-    if (seenIds.has(album.id) || seenTitles.has(title)) return false;
-    seenIds.add(album.id);
-    seenTitles.add(title);
-    return true;
-  });
-}
-
 async function fetchAllArtistAlbums(
   artistId: string,
   tiddlConfig: TiddlConfig,
@@ -42,9 +40,7 @@ async function fetchAllArtistAlbums(
   const singlesFilter = tiddlConfig.download?.singles_filter ?? "none";
 
   if (singlesFilter === "only") {
-    return deduplicateAlbums(
-      await fetchAlbumsByFilter(artistId, "EPSANDSINGLES", tiddlConfig),
-    );
+    return fetchAlbumsByFilter(artistId, "EPSANDSINGLES", tiddlConfig);
   }
 
   if (singlesFilter === "include") {
@@ -52,13 +48,11 @@ async function fetchAllArtistAlbums(
       fetchAlbumsByFilter(artistId, "ALBUMS", tiddlConfig),
       fetchAlbumsByFilter(artistId, "EPSANDSINGLES", tiddlConfig),
     ]);
-    return deduplicateAlbums([...albums, ...singles]);
+    return [...albums, ...singles];
   }
 
   // Default: "none" → albums only
-  return deduplicateAlbums(
-    await fetchAlbumsByFilter(artistId, "ALBUMS", tiddlConfig),
-  );
+  return fetchAlbumsByFilter(artistId, "ALBUMS", tiddlConfig);
 }
 
 /**
@@ -82,15 +76,30 @@ export async function getArtistAlbums(item: ProcessingItemType): Promise<void> {
 
     logs(item.id, `📊 [DISCOGRAPHY] Found ${albums.length} albums`);
 
-    const newItems: ProcessingItemType[] = albums.map((album) => ({
+    // Tidal lists the clean and explicit editions as separate albums: keep one
+    const preference = getExplicitPreference();
+    const { selected, skipped } = resolveEditions(
+      albums.map((album) => ({
+        ...album,
+        artist: albumArtist(album, item.artist),
+      })),
+      app.locals.processingStack.data,
+      preference,
+    );
+
+    if (skipped.length > 0) {
+      logs(item.id, describeSkipped(skipped, preference));
+    }
+
+    const newItems: ProcessingItemType[] = selected.map((album) => ({
       id: String(album.id),
       url: `album/${album.id}`,
       type: "album",
       status: "queue_download",
       loading: false,
-      artist:
-        album.artists?.[0]?.name || album.artist?.name || item.artist || "",
+      artist: album.artist,
       title: album.title,
+      explicit: album.explicit,
       quality: item.quality,
       error: false,
       source: "tidarr",
@@ -98,7 +107,7 @@ export async function getArtistAlbums(item: ProcessingItemType): Promise<void> {
 
     await app.locals.processingStack.actions.addItems(newItems, true);
 
-    logs(item.id, `✅ [DISCOGRAPHY] Added ${albums.length} albums to queue`);
+    logs(item.id, `✅ [DISCOGRAPHY] Added ${newItems.length} albums to queue`);
   } catch (error) {
     logs(
       item.id,
