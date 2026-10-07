@@ -5,7 +5,7 @@ import Card from "@mui/material/Card";
 import Typography from "@mui/material/Typography";
 import { useConfigProvider } from "src/provider/ConfigProvider";
 import { AlbumArtistType } from "src/types";
-import { formatDate } from "src/utils/helpers";
+import { formatDate, visuallyHidden } from "src/utils/helpers";
 import { surface } from "src/utils/theme";
 
 import { ChipAI } from "./ChipAI";
@@ -58,21 +58,26 @@ const CardArtist = ({
   if (!artist?.id || !artist?.name) return null;
 
   return (
-    <Link
-      component={RouterLink}
-      to={`/artist/${artist.id}`}
-      underline="hover"
-      sx={{
-        color: onImage ? "rgba(255,255,255,.82)" : "text.secondary",
-        fontSize: "0.85rem",
-        fontWeight: 500,
-        textShadow: onImage ? "0 1px 8px rgba(0,0,0,.6)" : "none",
-        "&:hover": { color: "text.primary" },
-        ...clamp(1),
-      }}
-    >
-      {artist.name}
-    </Link>
+    <>
+      <Box component="span" sx={visuallyHidden}>
+        {" by "}
+      </Box>
+      <Link
+        component={RouterLink}
+        to={`/artist/${artist.id}`}
+        underline="hover"
+        sx={{
+          color: onImage ? "rgba(255,255,255,.82)" : "text.secondary",
+          fontSize: "0.85rem",
+          fontWeight: 500,
+          textShadow: onImage ? "0 1px 8px rgba(0,0,0,.6)" : "none",
+          "&:hover": { color: "text.primary" },
+          ...clamp(1),
+        }}
+      >
+        {artist.name}
+      </Link>
+    </>
   );
 };
 

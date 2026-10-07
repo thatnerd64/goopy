@@ -15,6 +15,7 @@ import {
 import Card from "@mui/material/Card";
 import { TIDAL_VIDEO_URL } from "src/contants";
 import { VideoType } from "src/types";
+import { visuallyHidden } from "src/utils/helpers";
 
 import { DownloadButton } from "../Buttons/DownloadButton";
 import { DialogHandler } from "../Dialog";
@@ -86,6 +87,9 @@ export default function VideoCard({ video }: { video: VideoType }) {
               />
             </Link>
             <Box>
+              <Box component="span" sx={visuallyHidden}>
+                {" by "}
+              </Box>
               <Link
                 component={RouterLink}
                 to={`/artist/${video.artists[0].id}`}

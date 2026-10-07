@@ -20,3 +20,16 @@ export function formatDate(dateString: string): string {
   );
   return formatter.format(date);
 }
+
+// Text for screen readers only (e.g. the "by" between a title and its artist)
+export const visuallyHidden = {
+  border: 0,
+  clip: "rect(0 0 0 0)",
+  height: "1px",
+  margin: "-1px",
+  overflow: "hidden",
+  padding: 0,
+  position: "absolute",
+  whiteSpace: "nowrap",
+  width: "1px",
+} as const;
