@@ -223,7 +223,20 @@ export function tidalToken(req: Request, res: Response) {
     res.write(`data: ${data.toString()}\n\n`);
   });
 
+  // Without a listener, a failure to start tiddl (missing binary, permissions)
+  // is an unhandled 'error' event that takes the whole server down
+  tiddlProcess.on("error", (error) => {
+    console.error(`❌ [TIDDL]: Could not run tiddl: ${error.message}`);
+    if (!res.writableEnded) {
+      res.write(`data: Could not run tiddl: ${error.message}\n\n`);
+      res.end();
+    }
+  });
+
   tiddlProcess.on("close", (code) => {
+    // 'close' can follow 'error': the response is already answered
+    if (res.writableEnded) return;
+
     if (code === 0) {
       res.write(
         `data: Authenticated! Token saved to ${CONFIG_PATH}/.tiddl/auth.json\n\n`,
