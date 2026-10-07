@@ -20,9 +20,11 @@ export function ModuleTitle({
         sx={{
           flexWrap: "wrap",
           alignItems: "center",
-          py: 2,
+          pt: 3,
+          pb: 1.5,
           gap: 2,
-          borderBottom: "1px solid white",
+          borderBottom: "1px solid",
+          borderColor: "divider",
         }}
       >
         <Box
@@ -39,7 +41,19 @@ export function ModuleTitle({
             title.toLowerCase() === "featured albums"
               ? "Albums"
               : title}{" "}
-            {total ? `(${total})` : ""}
+            {total ? (
+              <Box
+                component="span"
+                sx={{
+                  color: "text.disabled",
+                  fontSize: "0.7em",
+                  fontWeight: 600,
+                  ml: 0.5,
+                }}
+              >{`(${total})`}</Box>
+            ) : (
+              ""
+            )}
           </Typography>
         </Box>
         <Box
@@ -52,7 +66,7 @@ export function ModuleTitle({
           {rightBlock}
         </Box>
       </Stack>
-      <br />
+      <Box sx={{ height: 20 }} />
     </div>
   );
 }

@@ -1,9 +1,8 @@
 import { Link } from "react-router-dom";
 import styled from "@emotion/styled";
-import AlbumIcon from "@mui/icons-material/Album";
 import {
   Box,
-  Stack,
+  Container,
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
@@ -17,6 +16,7 @@ import DisplayButton from "../Buttons/DisplayModeButton";
 import LogoutButton from "../Buttons/LogoutButton";
 import SettingsButton from "../Buttons/SettingsButton";
 
+import { Logo } from "./Logo";
 import { SearchForm } from "./SearchForm";
 
 const QualityToggleButton = ({
@@ -33,7 +33,7 @@ const QualityToggleButton = ({
 
   return (
     <Tooltip title={tooltip}>
-      <ToggleButton value={value} disabled={isQualityLocked}>
+      <ToggleButton value={value} disabled={isQualityLocked} sx={{ px: 1.75 }}>
         {label}
       </ToggleButton>
     </Tooltip>
@@ -45,187 +45,104 @@ export const HeaderSearch = () => {
   const { isAuthActive } = useAuth();
 
   return (
-    <Header>
-      <Box>
-        <SearchWrapper
+    <Container maxWidth="lg" sx={{ px: { xs: 1.5, sm: 3 } }}>
+      <Box
+        sx={{
+          alignItems: "center",
+          display: "grid",
+          gap: { xs: 1, md: 2 },
+          gridTemplateAreas: {
+            xs: '"logo actions" "search search" "quality quality"',
+            md: '"logo search quality actions"',
+          },
+          gridTemplateColumns: {
+            xs: "1fr auto",
+            md: "auto minmax(0, 1fr) auto auto",
+          },
+          py: { xs: 1, md: 1.25 },
+        }}
+      >
+        <Box sx={{ gridArea: "logo" }}>
+          <Link to="/" style={{ textDecoration: "none" }}>
+            <Title data-testid="logo">
+              <Logo size={30} />
+              <span>Tidarr</span>
+            </Title>
+          </Link>
+        </Box>
+
+        <Box sx={{ gridArea: "search", minWidth: 0 }}>
+          <SearchForm />
+        </Box>
+
+        <Box sx={{ gridArea: "quality", minWidth: 0 }}>
+          <ToggleButtonGroup
+            color="primary"
+            value={quality || "all"}
+            fullWidth
+            size="small"
+            exclusive
+            onChange={(_e, value) => value?.length && actions.setQuality(value)}
+            aria-label="Quality"
+          >
+            <QualityToggleButton
+              label="Low"
+              value="low"
+              tooltip="Download format: '.m4a' files, 96 kbps"
+            />
+            <QualityToggleButton
+              label="Normal"
+              value="normal"
+              tooltip="Download format: '.m4a' files, 320 kbps"
+            />
+            <QualityToggleButton
+              label="High"
+              value="high"
+              tooltip="Download format: '.flac' files, 16-bit, 44.1 kHz"
+            />
+            <QualityToggleButton
+              label="Max"
+              value="max"
+              tooltip="Download format: '.flac' files, Up to 24-bit, 192 kHz"
+            />
+          </ToggleButtonGroup>
+        </Box>
+
+        <Box
           sx={{
             alignItems: "center",
-            py: 1,
-            px: 1,
-            display: {
-              xs: "block",
-              md: "flex",
-            },
+            display: "flex",
+            gap: 0.25,
+            gridArea: "actions",
+            justifyContent: "flex-end",
           }}
         >
-          <Stack
-            direction="row"
-            sx={{
-              flex: "1 1 0",
-              alignItems: "center",
-            }}
-          >
-            <Box
-              sx={{
-                flex: "0 0 auto",
-                px: 2,
-              }}
-            >
-              <Link to="/" style={{ textDecoration: "none" }}>
-                <Title data-testid="logo">
-                  <AlbumIcon />
-                  <span>Tidarr</span>
-                </Title>
-              </Link>
-            </Box>
-            <Box
-              sx={{
-                flex: "1 1 0",
-              }}
-            >
-              <SearchForm />
-            </Box>
-          </Stack>
-
-          <Box
-            sx={{
-              flex: "0 0 auto",
-              display: "flex",
-              alignItems: "center",
-
-              margin: {
-                xs: "0.5rem 0 0",
-                md: "0 0 0 0.5rem",
-              },
-            }}
-          >
-            <Box
-              sx={{
-                flex: "1 1 0",
-              }}
-            >
-              <ToggleButtonGroup
-                color="primary"
-                value={quality || "all"}
-                fullWidth
-                size={window.innerWidth > 1024 ? "large" : "small"}
-                exclusive
-                onChange={(_e, value) =>
-                  value?.length && actions.setQuality(value)
-                }
-                aria-label="Quality"
-              >
-                <QualityToggleButton
-                  label="Low"
-                  value="low"
-                  tooltip="Download format: '.m4a' files, 96 kbps"
-                />
-                <QualityToggleButton
-                  label="Normal"
-                  value="normal"
-                  tooltip="Download format: '.m4a' files, 320 kbps"
-                />
-                <QualityToggleButton
-                  label="High"
-                  value="high"
-                  tooltip="Download format: '.flac' files, 16-bit, 44.1 kHz"
-                />
-                <QualityToggleButton
-                  label="Max"
-                  value="max"
-                  tooltip="Download format: '.flac' files, Up to 24-bit, 192 kHz"
-                />
-              </ToggleButtonGroup>
-            </Box>
-            &nbsp;
-            <Box
-              sx={{
-                flex: "0 0 auto",
-              }}
-            >
-              <AtmosFilterButton />
-            </Box>
-            <Box
-              sx={{
-                flex: "0 0 auto",
-              }}
-            >
-              <DisplayButton />
-            </Box>
-            <Box
-              sx={{
-                flex: "0 0 auto",
-              }}
-            >
-              <SettingsButton />
-            </Box>
-            {isAuthActive && (
-              <Box
-                sx={{
-                  flex: "0 0 auto",
-                }}
-              >
-                <LogoutButton />
-              </Box>
-            )}
-          </Box>
-        </SearchWrapper>
+          <AtmosFilterButton />
+          <DisplayButton />
+          <SettingsButton />
+          {isAuthActive && <LogoutButton />}
+        </Box>
       </Box>
-    </Header>
+    </Container>
   );
 };
 
-const Header = styled.div`
-  background-color: #212121;
-  box-shadow: 0 0 10px #000;
-  left: 0;
-  top: 0;
-  text-align: center;
-  width: 100%;
-  transition: all 250ms ease-in;
-  z-index: 2000;
-`;
-
-const SearchWrapper = styled(Box)`
-  margin: 0 auto;
-  transition: all 300ms ease-out;
-  width: 100%;
-`;
-
 const Title = styled.h1`
   align-items: center;
-  color: rgb(144, 202, 249);
+  color: #eef1f6;
   display: flex;
-  font-size: 1rem;
-  text-align: center;
-  text-transform: uppercase;
-  transition: color 300ms ease;
+  font-size: 1.25rem;
+  font-weight: 800;
+  gap: 0.6rem;
+  letter-spacing: -0.02em;
+  margin: 0;
+  transition: opacity 200ms ease;
 
   &:hover {
-    color: #ce93d8;
-  }
-
-  @media screen and (max-width: 30rem) {
-    font-size: 0.75rem;
-  }
-
-  span {
-    animation: hideText 1s forwards 2s;
-    display: inline-block;
-    padding-left: 0.75rem;
-    overflow: hidden;
-    width: 5rem;
+    opacity: 0.85;
   }
 
   svg {
-    transform: scale(1.5);
-  }
-
-  @keyframes hideText {
-    to {
-      opacity: 0;
-      padding: 0px;
-      width: 0px;
-    }
+    flex: 0 0 auto;
   }
 `;

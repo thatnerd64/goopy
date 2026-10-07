@@ -67,7 +67,7 @@ export default function UpdatePanel() {
 
 const MarkdownStyled = styled(Markdown)`
   a {
-    color: rgb(144, 202, 249);
+    color: #86f0e0;
   }
 
   ul {

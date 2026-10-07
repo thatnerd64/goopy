@@ -2,9 +2,9 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Download } from "@mui/icons-material";
 import { CircularProgress, SpeedDial } from "@mui/material";
-import { blue } from "@mui/material/colors";
 import { useConfigProvider } from "src/provider/ConfigProvider";
 import { useProcessingProvider } from "src/provider/ProcessingProvider";
+import { customColors } from "src/utils/theme";
 
 export const ProcessingButton = () => {
   const { processingList, isPaused } = useProcessingProvider();
@@ -49,7 +49,7 @@ export const ProcessingButton = () => {
         <CircularProgress
           size={68}
           sx={{
-            color: blue[500],
+            color: "#7ff0de",
             position: "absolute",
             top: -6,
             left: -6,
@@ -82,13 +82,17 @@ export const ProcessingButton = () => {
       ariaLabel="Show processing list"
       sx={{
         position: "fixed",
-        bottom: 50,
-        right: 16,
+        bottom: 24,
+        right: 20,
         zIndex: "2000",
       }}
       icon={processingButton}
       FabProps={{
         color: buttonColor,
+        sx:
+          buttonColor === "primary"
+            ? { backgroundImage: customColors.gradient }
+            : undefined,
       }}
       onClick={() => navigate("/processing")}
     ></SpeedDial>

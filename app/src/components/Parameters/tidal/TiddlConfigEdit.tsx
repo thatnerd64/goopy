@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import Editor from "@monaco-editor/react";
 import { Save } from "@mui/icons-material";
-import { Box, Button, CircularProgress } from "@mui/material";
+import { Alert, Box, Button, CircularProgress } from "@mui/material";
 import { useFileEdit } from "src/hooks/useFileEdit";
 import { useApiFetcher } from "src/provider/ApiFetcherProvider";
 
@@ -17,6 +17,7 @@ export default function TiddlConfigEdit() {
     setIsDirty,
     isSaving,
     isLoading,
+    saveError,
     loadFileContent,
     saveFileContent,
   } = useFileEdit(get_tiddl_toml, set_tiddl_toml);
@@ -26,8 +27,8 @@ export default function TiddlConfigEdit() {
   }, [loadFileContent]);
 
   const handleSave = async () => {
-    await saveFileContent();
-    window.location.reload();
+    // Stay on the page when the server refused the file (e.g. invalid TOML)
+    if (await saveFileContent()) window.location.reload();
   };
 
   const handleCancel = () => {
@@ -75,6 +76,11 @@ export default function TiddlConfigEdit() {
               }}
             />
           </Box>
+          {saveError && (
+            <Alert severity="error" sx={{ mt: 2 }} role="alert">
+              {saveError}
+            </Alert>
+          )}
           <Box
             sx={{
               justifyContent: "right",

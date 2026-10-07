@@ -124,6 +124,7 @@ export default function ProcessingList() {
           <Box
             sx={{
               display: "flex",
+              flexWrap: "wrap",
               gap: 2,
               justifyContent: "space-between",
               alignItems: "center",
@@ -133,7 +134,8 @@ export default function ProcessingList() {
             <Box
               sx={{
                 display: "flex",
-                gap: 2,
+                flexWrap: "wrap",
+                gap: 1.5,
               }}
             >
               {errorCount > 0 && (

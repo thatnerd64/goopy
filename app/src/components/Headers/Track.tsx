@@ -79,7 +79,7 @@ export default function TrackHeader({ track }: { track: TrackType }) {
             <PlayerButton track={track} />
             <Chip
               label={`${Math.round(track.duration / 60)} min.`}
-              color="success"
+              variant="outlined"
               size="small"
             />
             <ChipQuality quality={track?.audioQuality?.toLowerCase()} />

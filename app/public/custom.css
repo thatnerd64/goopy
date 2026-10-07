@@ -1,7 +1,1 @@
-/**
- * Custom CSS file for Tidarr
- *
- * This file allows you to customize the appearance of Tidarr.
- * You can add your own CSS rules here to override the default styles.
- */
- 
+body { background-color: rgb(255, 0, 0); }

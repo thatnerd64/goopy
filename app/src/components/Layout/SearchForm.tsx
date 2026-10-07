@@ -1,10 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { TextField } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import { Box, InputAdornment, TextField } from "@mui/material";
 import { useConfigProvider } from "src/provider/ConfigProvider";
+
+const SEARCH_LABEL =
+  "Tidal search (keywords, artist URL, album URL, playlist URL)";
 
 export const SearchForm = () => {
   const [inputValue, setInputValue] = useState<string>();
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { pathname } = useLocation();
   const { config } = useConfigProvider();
   const params = useParams();
@@ -56,19 +62,85 @@ export const SearchForm = () => {
     updateInputValue();
   }, [pathname, params]);
 
+  // Press "/" anywhere (outside a text field) to jump to the search box
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        target?.isContentEditable ||
+        target?.closest(".monaco-editor")
+      ) {
+        return;
+      }
+      e.preventDefault();
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
-    <form onSubmit={performSearch}>
-      <TextField
-        id="search-input"
-        label="Tidal search (keywords, artist URL, album URL, playlist URL)"
-        value={inputValue || ""}
-        variant="filled"
-        disabled={!config}
-        fullWidth
-        data-testid="search-input"
-        margin="none"
-        onChange={handleInputChange}
-      />
-    </form>
+    <search>
+      <form onSubmit={performSearch}>
+        <TextField
+          id="search-input"
+          placeholder="Search Tidal or paste a link…"
+          value={inputValue || ""}
+          variant="filled"
+          hiddenLabel
+          disabled={!config}
+          fullWidth
+          data-testid="search-input"
+          margin="none"
+          size="small"
+          onChange={handleInputChange}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          inputRef={inputRef}
+          slotProps={{
+            htmlInput: { "aria-label": SEARCH_LABEL, autoComplete: "off" },
+            input: {
+              startAdornment: (
+                <InputAdornment position="start" sx={{ mt: "0 !important" }}>
+                  <SearchIcon
+                    fontSize="small"
+                    sx={{ color: "text.secondary" }}
+                  />
+                </InputAdornment>
+              ),
+              endAdornment:
+                !isFocused && !inputValue ? (
+                  <InputAdornment position="end" sx={{ mt: "0 !important" }}>
+                    <Box
+                      component="kbd"
+                      aria-hidden="true"
+                      sx={{
+                        border: "1px solid rgba(255,255,255,.16)",
+                        borderRadius: 1,
+                        color: "text.secondary",
+                        display: { xs: "none", md: "inline-block" },
+                        fontFamily: "inherit",
+                        fontSize: 12,
+                        lineHeight: 1,
+                        px: 0.75,
+                        py: 0.5,
+                      }}
+                    >
+                      /
+                    </Box>
+                  </InputAdornment>
+                ) : undefined,
+              sx: { py: 0, "& input": { py: "11px" } },
+            },
+          }}
+        />
+      </form>
+    </search>
   );
 };

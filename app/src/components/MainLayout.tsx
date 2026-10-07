@@ -1,6 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
 import styled from "@emotion/styled";
-import AlbumIcon from "@mui/icons-material/Album";
 import { AppBar, CircularProgress } from "@mui/material";
 import { HistoryProvider } from "src/provider/HistoryProvider";
 import { SearchProvider } from "src/provider/SearchProvider";
@@ -15,6 +14,7 @@ import { DialogNoAPI } from "./Dialog/DialogNoAPI";
 import { DialogToken } from "./Dialog/DialogToken";
 import { Footer } from "./Layout/Footer";
 import { HeaderSearch } from "./Layout/HeaderSearch";
+import { Logo } from "./Layout/Logo";
 import { ProcessingButton } from "./Processing/ProcessingButton";
 import { DocumentTitle } from "./DocumentTitle";
 
@@ -41,11 +41,8 @@ function MainLayout({ children }: { children: ReactNode }) {
   }, [checkForUpdates, releaseData]);
 
   return (
-    <>
-      <main
-        className="flex min-h-screen flex-col items-center justify-between"
-        style={{ paddingBottom: "1rem" }}
-      >
+    <Shell>
+      <Main>
         <SearchProvider>
           <HistoryProvider>
             <ProcessingProvider>
@@ -58,10 +55,10 @@ function MainLayout({ children }: { children: ReactNode }) {
                   {!appLoaded || !config ? (
                     <Loader>
                       <Title>
-                        <AlbumIcon />
+                        <Logo size={36} />
                         Tidarr
                       </Title>
-                      <CircularProgress />
+                      <CircularProgress size={28} />
                     </Loader>
                   ) : (
                     children
@@ -76,22 +73,35 @@ function MainLayout({ children }: { children: ReactNode }) {
             </ProcessingProvider>
           </HistoryProvider>
         </SearchProvider>
-      </main>
+      </Main>
       <Footer />
-    </>
+    </Shell>
   );
 }
 
 export default MainLayout;
 
+const Shell = styled.div`
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+`;
+
+const Main = styled.main`
+  flex: 1 0 auto;
+  width: 100%;
+`;
+
 const Content = styled.div`
-  margin: 0 0 3rem 0;
+  margin: 0;
 `;
 
 const Loader = styled.div`
   align-items: center;
   display: flex;
   flex-direction: column;
+  gap: 1.25rem;
   justify-content: center;
   left: 50%;
   position: absolute;
@@ -101,15 +111,10 @@ const Loader = styled.div`
 
 const Title = styled.div`
   align-items: center;
-  color: rgb(144, 202, 249);
+  color: #eef1f6;
   display: flex;
-  font-size: 1.5rem;
-  font-weight: bold;
-  margin-bottom: 1rem;
-  text-transform: uppercase;
-
-  svg {
-    margin-right: 0.5rem;
-    transform: scale(1.2);
-  }
+  font-size: 1.75rem;
+  font-weight: 800;
+  gap: 0.75rem;
+  letter-spacing: -0.02em;
 `;

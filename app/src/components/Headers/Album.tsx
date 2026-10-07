@@ -1,6 +1,5 @@
-import { useNavigate } from "react-router-dom";
-import { Button, Chip, Stack } from "@mui/material";
-import Typography from "@mui/material/Typography";
+import { Link as RouterLink } from "react-router-dom";
+import { Chip, Link, Stack } from "@mui/material";
 
 import { AlbumType } from "../../types";
 import { DownloadButton } from "../Buttons/DownloadButton";
@@ -14,8 +13,6 @@ import { ChipQuality } from "../Cards/common/ChipQuality";
 import PageHeader from "./Header";
 
 export default function AlbumHeader({ album }: { album: AlbumType }) {
-  const navigate = useNavigate();
-
   return (
     <PageHeader
       title={album.title}
@@ -36,32 +33,20 @@ export default function AlbumHeader({ album }: { album: AlbumType }) {
         >
           <ArtistAvatar
             alt={album.artists?.[0]?.name}
+            sx={{ width: 28, height: 28 }}
             src={`https://resources.tidal.com/images/${album.artists?.[0]?.picture?.replace(
               /-/g,
               "/",
             )}/750x750.jpg`}
           />
-          <Typography
-            variant="subtitle2"
-            component="span"
-            style={{ lineHeight: 1 }}
-            sx={{
-              color: "text.secondary",
-            }}
+          <Link
+            component={RouterLink}
+            to={`/artist/${album.artists[0].id}`}
+            underline="hover"
+            sx={{ color: "text.primary", fontWeight: 600 }}
           >
-            {` `}by{` `}
-            <Button
-              variant="text"
-              size="small"
-              color="inherit"
-              style={{ padding: "0 0.15rem" }}
-              onClick={() => {
-                navigate(`/artist/${album.artists[0].id}`);
-              }}
-            >
-              <strong>{album.artists?.[0]?.name}</strong>
-            </Button>
-          </Typography>
+            {album.artists?.[0]?.name}
+          </Link>
         </Stack>
       }
       afterTitle={

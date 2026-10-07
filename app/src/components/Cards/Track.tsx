@@ -1,5 +1,12 @@
 import { Link } from "react-router-dom";
-import { Box, Chip, Stack, useMediaQuery, useTheme } from "@mui/material";
+import {
+  Box,
+  Chip,
+  Link as MuiLink,
+  Stack,
+  useMediaQuery,
+  useTheme,
+} from "@mui/material";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
@@ -56,8 +63,8 @@ function StackChips({ track }: { track: TrackType }) {
       {isMobile && <PlayerButton track={track} />}
       <Chip
         label={`${Math.round(track.duration / 60)} min.`}
-        color="success"
         size="small"
+        variant="outlined"
       />
       <ChipQuality quality={track?.audioQuality?.toLowerCase()} />
       <ChipAtmos audioModes={track?.audioModes} />
@@ -69,19 +76,25 @@ function StackChips({ track }: { track: TrackType }) {
   );
 }
 
-function AlbumLink({ track }: { track: TrackType }) {
-  const theme = useTheme();
+const subtleLink = {
+  color: "text.secondary",
+  fontSize: 14,
+  "&:hover": { color: "text.primary" },
+} as const;
 
+function AlbumLink({ track }: { track: TrackType }) {
   return (
-    <div style={{ fontSize: "14px" }}>
+    <Typography component="div" sx={{ color: "text.disabled", fontSize: 14 }}>
       Album :{" "}
-      <Link
+      <MuiLink
+        component={Link}
         to={`/album/${track.album.id}`}
-        style={{ color: theme.palette.primary.main }}
+        underline="hover"
+        sx={subtleLink}
       >
         {track.album.title}
-      </Link>
-    </div>
+      </MuiLink>
+    </Typography>
   );
 }
 
@@ -119,6 +132,7 @@ export function TrackCoverLink({
       }}
     >
       <ImageLazy
+        style={{ borderRadius: 10, display: "block", objectFit: "cover" }}
         height={width}
         width={height}
         src={`https://resources.tidal.com/images/${track.album.cover?.replace(
@@ -132,38 +146,40 @@ export function TrackCoverLink({
 }
 
 function TitleLink({ track }: { track: TrackType }) {
-  const theme = useTheme();
-
   return (
-    <Link
+    <MuiLink
+      component={Link}
       to={`/track/${track.id}`}
-      style={{
-        lineHeight: 1.2,
-        color: theme.palette.primary.main,
-        textDecoration: "none",
+      underline="none"
+      sx={{
+        color: "text.primary",
+        fontSize: "0.95rem",
+        fontWeight: 700,
+        lineHeight: 1.25,
+        "&:hover": { color: "primary.light" },
       }}
     >
-      <Typography
-        component="span"
-        style={{ lineHeight: 1, fontSize: "0.875rem" }}
-      >
-        <strong>{track.title}</strong>
-        {track?.version && <span> ({track.version})</span>}
-      </Typography>
-    </Link>
+      {track.title}
+      {track?.version && (
+        <Box component="span" sx={{ color: "text.secondary", fontWeight: 500 }}>
+          {" "}
+          ({track.version})
+        </Box>
+      )}
+    </MuiLink>
   );
 }
 
 function ArtistLink({ track }: { track: TrackType }) {
-  const theme = useTheme();
-
   return (
-    <Link
+    <MuiLink
+      component={Link}
       to={`/artist/${track.artists[0].id}`}
-      style={{ color: theme.palette.primary.main, fontSize: "14px" }}
+      underline="hover"
+      sx={subtleLink}
     >
       {track.artists?.[0]?.name}
-    </Link>
+    </MuiLink>
   );
 }
 
@@ -179,10 +195,7 @@ function TrackCard({ track }: { track: TrackType }) {
       <Stack
         direction="row"
         spacing={1}
-        style={{
-          minHeight: "72px",
-          backgroundColor: "rgba(255, 255, 255, 0.04)",
-        }}
+        style={{ minHeight: "72px" }}
         sx={{
           flexWrap: "wrap",
           alignItems: "flex-start",
@@ -260,7 +273,7 @@ function TrackInline({ track }: { track: TrackType }) {
   };
 
   return (
-    <Card sx={{ p: 1 }}>
+    <Card sx={{ p: 1, "&:hover": { borderColor: "rgba(255,255,255,.2)" } }}>
       <Box
         sx={{
           width: "100%",

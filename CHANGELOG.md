@@ -13,6 +13,17 @@ Tidarr notable changes.
 - [API] Queue items now carry the Tidal `explicit` flag
 - [API] First unit tests (vitest) + `pnpm test`, run in CI
 
+### 🎨 Interface
+
+- [Front] **Complete visual redesign**: new design system (dark ink palette, teal → violet accent, Inter/system type scale, 12px rounded surfaces), glass sticky header with a pill search field, segmented quality control and a responsive 3-row layout on phones
+- [Front] Press `/` anywhere to jump to the search field
+- [Front] Rebuilt album / playlist / mix cards: a compact list layout and a cover grid whose details appear on hover (always visible on touch devices); new album / artist / playlist / track page headers with a blurred cover backdrop
+- [Front] Queue: color-coded rows per status, a real progress bar for the active download, type / quality chips, and an `E` marker on the explicit edition that was queued; artist shown under the title on small screens
+- [Front] New login screen; footer no longer sits in a fixed bar over the content; consistent buttons, tabs, chips, dialogs and tooltips (all from one theme)
+- [Front] Invalid `config.toml` / custom CSS saves and rate-limited logins now show the server's message instead of failing silently
+- [Front] `prefers-reduced-motion` is respected
+- [Privacy] The analytics script that was loaded from the upstream author's server on every non-localhost deployment is removed
+
 ### 🔒 Security
 
 - [API] **Shell injection fixed**: Gotify / ntfy / Pushover webhook / Apprise notifications were built as `curl` shell commands with the album title and artist name inside, so a title like `$(command)` or a `'` could run commands. They are now sent with native `fetch` (timeout, real HTTP error reporting, secrets no longer logged)

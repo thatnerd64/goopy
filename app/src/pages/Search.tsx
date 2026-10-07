@@ -55,7 +55,7 @@ export default function Search() {
   }, [value]);
 
   return (
-    <Box sx={{ bgcolor: "background.paper" }}>
+    <Box sx={{ pb: 4 }}>
       {keywords && (
         <Portal container={document.getElementById("app-bar")}>
           <Container maxWidth="lg">
