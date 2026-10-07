@@ -54,6 +54,8 @@ export async function configureServer() {
       DOWNLOAD_BATCH_SIZE: process.env.DOWNLOAD_BATCH_SIZE || "",
       DOWNLOAD_BATCH_DELAY: process.env.DOWNLOAD_BATCH_DELAY || "",
       EXPLICIT_PREFERENCE: process.env.EXPLICIT_PREFERENCE || "",
+      DOWNLOAD_COOLDOWN_TRACKS: process.env.DOWNLOAD_COOLDOWN_TRACKS || "",
+      DOWNLOAD_COOLDOWN_SECONDS: process.env.DOWNLOAD_COOLDOWN_SECONDS || "",
     },
   };
 }

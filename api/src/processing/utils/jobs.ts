@@ -37,6 +37,36 @@ async function listFilesRecursive(dir: string): Promise<string[]> {
 
 const COPY_CHUNK_SIZE = 200;
 
+// Media files that tiddl writes: one per downloaded song or video.
+// Covers (.jpg), playlists (.m3u) and lyrics (.lrc) are not counted.
+const MEDIA_EXTENSIONS = new Set([
+  ".flac",
+  ".m4a",
+  ".mp4",
+  ".mp3",
+  ".aac",
+  ".ogg",
+  ".opus",
+  ".wav",
+  ".alac",
+  ".mkv",
+]);
+
+/**
+ * Number of songs/videos downloaded in a processing folder.
+ * Items skipped by tiddl ("skip_existing") write nothing and count for 0.
+ */
+export async function countDownloadedTracks(dir: string): Promise<number> {
+  try {
+    const files = await listFilesRecursive(dir);
+    return files.filter((file) =>
+      MEDIA_EXTENSIONS.has(path.extname(file).toLowerCase()),
+    ).length;
+  } catch {
+    return 0;
+  }
+}
+
 export async function moveAndClean(id: string): Promise<{
   status: "finished" | "error" | undefined;
 }> {

@@ -7,6 +7,7 @@ import {
   VisibilityOff,
 } from "@mui/icons-material";
 import { Box, Button, Typography } from "@mui/material";
+import { CooldownNotice } from "src/components/Processing/CooldownNotice";
 import { ProcessingPauseButton } from "src/components/Processing/PauseButton";
 import { ProcessingTable } from "src/components/Processing/ProcessingTable";
 import { SearchFilter } from "src/components/Processing/SearchFilter";
@@ -131,6 +132,7 @@ export default function ProcessingList() {
             }}
           >
             <ProcessingPauseButton />
+            <CooldownNotice />
             <Box
               sx={{
                 display: "flex",

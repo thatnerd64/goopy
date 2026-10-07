@@ -30,6 +30,7 @@ vi.mock("./logs", () => ({ logs: vi.fn() }));
 
 import {
   cleanFolder,
+  countDownloadedTracks,
   getFolderToScan,
   hasFileToMove,
   moveAndClean,
@@ -210,5 +211,32 @@ describe("replacePathInM3U", () => {
     expect(
       fs.readFileSync(path.join(dir, "m3u", "playlist", "list.m3u"), "utf-8"),
     ).toBe("./A/01.flac\n./B/02.flac\n");
+  });
+});
+
+describe("countDownloadedTracks", () => {
+  it("counts songs and videos, not covers, playlists or lyrics", async () => {
+    const dir = path.join(processing, "111");
+    for (const name of ["01.flac", "02.FLAC", "03.m4a", "04.mp3", "clip.mp4"]) {
+      write(path.join(dir, "Artist", "Album", name));
+    }
+    for (const name of ["cover.jpg", "01.lrc", "list.m3u", "notes.txt"]) {
+      write(path.join(dir, "Artist", "Album", name));
+    }
+
+    expect(await countDownloadedTracks(dir)).toBe(5);
+  });
+
+  it("counts files in every nested folder", async () => {
+    const dir = path.join(processing, "111");
+    write(path.join(dir, "A", "x", "01.flac"));
+    write(path.join(dir, "B", "02.flac"));
+    expect(await countDownloadedTracks(dir)).toBe(2);
+  });
+
+  it("is 0 for an empty or missing folder (skipped downloads)", async () => {
+    fs.mkdirSync(path.join(processing, "empty"));
+    expect(await countDownloadedTracks(path.join(processing, "empty"))).toBe(0);
+    expect(await countDownloadedTracks(path.join(processing, "nope"))).toBe(0);
   });
 });

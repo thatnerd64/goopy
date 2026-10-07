@@ -30,13 +30,14 @@ router.get(
     });
 
     // Send initial state to the new client
-    const { isPaused, batchCount, batchResumeAt } =
+    const { isPaused, batchCount, batchResumeAt, cooldownRemainingMs } =
       req.app.locals.processingStack.actions.getQueueStatus();
     const payload = JSON.stringify({
       items: sanitizeProcessingData(req.app.locals.processingStack.data),
       isPaused,
       batchCount,
       batchResumeAt,
+      cooldownRemainingMs,
     });
     res.write(`data: ${payload}\n\n`);
   },

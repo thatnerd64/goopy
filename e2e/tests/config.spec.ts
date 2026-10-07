@@ -95,6 +95,8 @@ test("Tidarr config : Should see configuration dialog", async ({ page }) => {
     ["DOWNLOAD_BATCH_SIZE", ""],
     ["DOWNLOAD_BATCH_DELAY", ""],
     ["EXPLICIT_PREFERENCE", ""],
+    ["DOWNLOAD_COOLDOWN_TRACKS", ""],
+    ["DOWNLOAD_COOLDOWN_SECONDS", ""],
   ];
   const tableAPIRows = await page
     .getByLabel("simple table")

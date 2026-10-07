@@ -2,11 +2,19 @@ import { Express } from "express";
 
 import { NZB_DOWNLOAD_PATH, PROCESSING_PATH } from "../../../constants";
 import { checkBatchPause, getBatchDelayMs } from "../../services/batch-queue";
+import {
+  computeCooldown,
+  getCooldownConfig,
+} from "../../services/download-cooldown";
 import { ProcessingItemType, ProcessingItemWithPlaylist } from "../../types";
 import { handleDownload } from "../download/download-handler";
 import { postProcessLidarr } from "../post-processing/lidarr-post-processor";
 import { postProcessTidarr } from "../post-processing/tidarr-post-processor";
-import { cleanFolder, hasFileToMove } from "../utils/jobs";
+import {
+  cleanFolder,
+  countDownloadedTracks,
+  hasFileToMove,
+} from "../utils/jobs";
 import { logs } from "../utils/logs";
 
 const MAX_RETRIES = 3;
@@ -27,6 +35,12 @@ export class QueueManager {
   private batchCompletedCount: { value: number };
   private batchResumeTimer: NodeJS.Timeout | null = null;
   private batchResumeAt: number | null = null;
+  // Songs downloaded since the last cooldown wait (see services/download-cooldown)
+  private cooldownPendingTracks = 0;
+  private cooldownUntil: number | null = null;
+  private cooldownTimer: NodeJS.Timeout | null = null;
+  // Downloads that just finished and are still being accounted for
+  private slotsBeingReleased = 0;
 
   constructor(
     data: ProcessingItemType[],
@@ -75,12 +89,14 @@ export class QueueManager {
    * When paused, only the download slot is blocked — post-processing continues.
    */
   async processQueue(): Promise<void> {
-    const isDownloading = this.data.some((item) => item.status === "download");
+    const isDownloading =
+      this.slotsBeingReleased > 0 ||
+      this.data.some((item) => item.status === "download");
     const isPostProcessing = this.data.some(
       (item) => item.status === "processing",
     );
 
-    if (!isDownloading && !this.isPaused) {
+    if (!isDownloading && !this.isPaused && !this.isCoolingDown()) {
       const nextDownload = this.data.find(
         (item) => item.status === "queue_download",
       );
@@ -108,78 +124,98 @@ export class QueueManager {
    */
   startDownload(item: ProcessingItemType): void {
     handleDownload(item, this.app, async (playlistId) => {
-      // Download completed
-      delete item.process;
-
-      // If error, retry immediately up to MAX_RETRIES times
-      if (item.status === "error") {
-        item.errorStage = "download";
-
-        if (this.shouldRetry(item)) {
-          this.updateItemCallback(item);
-          this.startDownload(item);
-          return;
+      // Keep the download slot taken until this item is fully accounted for:
+      // the batch pause and the cooldown are decided after some awaits, and a
+      // concurrent processQueue() must not start the next download meanwhile.
+      this.slotsBeingReleased++;
+      let released = false;
+      const release = () => {
+        if (!released) {
+          released = true;
+          this.slotsBeingReleased--;
         }
+      };
 
-        // Rescue partially downloaded files instead of wiping them
-        const hadPartialFiles = await hasFileToMove(
-          `${PROCESSING_PATH}/${item.id}`,
-        );
+      try {
+        // Download completed
+        delete item.process;
 
-        if (hadPartialFiles) {
-          item.status = "queue_processing";
-          await this.applyBatchPause(item, `${PROCESSING_PATH}/${item.id}`);
+        // If error, retry immediately up to MAX_RETRIES times
+        if (item.status === "error") {
+          item.errorStage = "download";
 
-          this.updateItemCallback(item);
-          await this.updateItemInQueueFileCallback(item);
+          if (this.shouldRetry(item)) {
+            this.updateItemCallback(item);
+            this.startDownload(item);
+            return;
+          }
+
+          // Rescue partially downloaded files instead of wiping them
+          const hadPartialFiles = await hasFileToMove(
+            `${PROCESSING_PATH}/${item.id}`,
+          );
+
+          if (hadPartialFiles) {
+            item.status = "queue_processing";
+            await this.applyBatchPause(item, `${PROCESSING_PATH}/${item.id}`);
+
+            this.updateItemCallback(item);
+            await this.updateItemInQueueFileCallback(item);
+            release();
+            this.processQueue();
+            return;
+          }
+
+          await cleanFolder(item.id);
+
+          // Trigger next items in queue
+          release();
           this.processQueue();
           return;
         }
 
-        await cleanFolder(item.id);
+        // Clear any stale errorStage from a previous failed attempt
+        item.errorStage = undefined;
 
-        // Trigger next items in queue
-        this.processQueue();
-        return;
-      }
+        // For LIDARR items, go straight to post-processing
+        if (item.source === "lidarr") {
+          item.status = "processing";
+          this.updateItemCallback(item);
+          await this.updateItemInQueueFileCallback(item);
 
-      // Clear any stale errorStage from a previous failed attempt
-      item.errorStage = undefined;
+          // Increment batch counter before notifying SSE so UI sees updated count
+          await this.applyBatchPause(item, `${NZB_DOWNLOAD_PATH}/${item.id}`);
 
-      // For LIDARR items, go straight to post-processing
-      if (item.source === "lidarr") {
-        item.status = "processing";
+          // Start Lidarr post-processing immediately
+          postProcessLidarr(item, () => {
+            this.onPostProcessingComplete(item);
+          });
+
+          // Trigger download of next item
+          release();
+          this.processQueue();
+          return;
+        }
+
+        // For TIDARR items, move to post-processing queue
+        item.status = "queue_processing";
+
+        // Store playlistId for cleanup after post-processing
+        if (playlistId) {
+          (item as ProcessingItemWithPlaylist).playlistId = playlistId;
+        }
+
+        // Increment batch counter before notifying SSE so UI sees updated count
+        await this.applyBatchPause(item, `${PROCESSING_PATH}/${item.id}`);
+
         this.updateItemCallback(item);
         await this.updateItemInQueueFileCallback(item);
 
-        // Increment batch counter before notifying SSE so UI sees updated count
-        await this.applyBatchPause(item, `${NZB_DOWNLOAD_PATH}/${item.id}`);
-
-        // Start Lidarr post-processing immediately
-        postProcessLidarr(item, () => {
-          this.onPostProcessingComplete(item);
-        });
-
-        // Trigger download of next item
+        release();
         this.processQueue();
-        return;
+      } finally {
+        release();
       }
-
-      // For TIDARR items, move to post-processing queue
-      item.status = "queue_processing";
-
-      // Store playlistId for cleanup after post-processing
-      if (playlistId) {
-        (item as ProcessingItemWithPlaylist).playlistId = playlistId;
-      }
-
-      // Increment batch counter before notifying SSE so UI sees updated count
-      await this.applyBatchPause(item, `${PROCESSING_PATH}/${item.id}`);
-
-      this.updateItemCallback(item);
-      await this.updateItemInQueueFileCallback(item);
-
-      this.processQueue();
     });
   }
 
@@ -192,6 +228,9 @@ export class QueueManager {
     processingPath: string,
   ): Promise<void> {
     const hadFiles = await hasFileToMove(processingPath);
+    if (hadFiles) {
+      await this.applyCooldown(item, processingPath);
+    }
     if (!hadFiles || !checkBatchPause(item.id, this.batchCompletedCount)) {
       return;
     }
@@ -212,6 +251,60 @@ export class QueueManager {
         `⏱️ [BATCH] Auto-resume scheduled in ${delayMs / 60000} min.`,
       );
     }
+  }
+
+  /**
+   * Counts the songs a finished download produced and, once
+   * DOWNLOAD_COOLDOWN_TRACKS songs are reached, holds back the next download
+   * for DOWNLOAD_COOLDOWN_SECONDS (per DOWNLOAD_COOLDOWN_TRACKS songs).
+   */
+  private async applyCooldown(
+    item: ProcessingItemType,
+    processingPath: string,
+  ): Promise<void> {
+    const config = getCooldownConfig();
+    if (!config) return;
+
+    const downloaded = await countDownloadedTracks(processingPath);
+    const sinceLastWait = this.cooldownPendingTracks + downloaded;
+    const { waitMs, pendingTracks } = computeCooldown(
+      this.cooldownPendingTracks,
+      downloaded,
+      config,
+    );
+    this.cooldownPendingTracks = pendingTracks;
+
+    if (waitMs <= 0) return;
+
+    this.startCooldown(waitMs);
+    const seconds = Math.round(waitMs / 1000);
+    logs(
+      item.id,
+      `⏳ [COOLDOWN] ${downloaded} song(s) downloaded (${sinceLastWait} since the last wait): waiting ${seconds}s before the next download.`,
+    );
+    console.log(
+      `⏳ [COOLDOWN] Next download delayed by ${seconds}s (${sinceLastWait} song(s) since the last wait).`,
+    );
+  }
+
+  private startCooldown(waitMs: number): void {
+    const now = Date.now();
+    // Waits add up if a second one is earned while one is already running
+    this.cooldownUntil = Math.max(this.cooldownUntil ?? 0, now) + waitMs;
+
+    if (this.cooldownTimer) clearTimeout(this.cooldownTimer);
+    this.cooldownTimer = setTimeout(() => {
+      this.cooldownTimer = null;
+      this.cooldownUntil = null;
+      this.processQueue();
+      this.onBatchResumeCallback();
+    }, this.cooldownUntil - now);
+    // A pending cooldown must not keep the process alive on shutdown
+    this.cooldownTimer.unref?.();
+  }
+
+  private isCoolingDown(): boolean {
+    return this.cooldownUntil !== null && Date.now() < this.cooldownUntil;
   }
 
   /**
@@ -314,5 +407,19 @@ export class QueueManager {
 
   getBatchResumeAt(): number | null {
     return this.batchResumeAt;
+  }
+
+  /** Timestamp (ms) until which new downloads are held back, or null. */
+  getCooldownUntil(): number | null {
+    return this.isCoolingDown() ? this.cooldownUntil : null;
+  }
+
+  /**
+   * Time left on the cooldown, for the interface. A duration rather than a
+   * timestamp, so a browser clock that is off does not skew the countdown.
+   */
+  getCooldownRemainingMs(): number | null {
+    const until = this.getCooldownUntil();
+    return until === null ? null : Math.max(0, until - Date.now());
   }
 }

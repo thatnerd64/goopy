@@ -25,6 +25,8 @@ type ProcessingContextType = {
   isBeingDeleted: boolean | string | undefined;
   batchCount: number;
   batchResumeAt: number | null;
+  // Local time (ms) at which the download cooldown ends, null when not cooling down
+  cooldownEndsAt: number | null;
   actions: {
     setProcessingList: (list: ProcessingItemType[]) => void;
     setIsPaused: (isPaused: boolean) => void;
@@ -49,6 +51,7 @@ export function ProcessingProvider({ children }: { children: ReactNode }) {
   const [isBeingDeleted, setIsBeingDeleted] = useState<boolean | string>();
   const [batchCount, setBatchCount] = useState<number>(0);
   const [batchResumeAt, setBatchResumeAt] = useState<number | null>(null);
+  const [cooldownEndsAt, setCooldownEndsAt] = useState<number | null>(null);
   const eventSourceRef = useRef<EventSourceController | null>(null);
 
   const {
@@ -124,6 +127,10 @@ export function ProcessingProvider({ children }: { children: ReactNode }) {
       setIsPaused,
       setBatchCount,
       setBatchResumeAt,
+      // The server sends a duration: it is turned into a deadline on the local
+      // clock, so a browser clock that is off cannot skew the countdown
+      (remainingMs) =>
+        setCooldownEndsAt(remainingMs ? Date.now() + remainingMs : null),
     );
     eventSourceRef.current = controller;
     window.addEventListener("beforeunload", closeStreamProcessing);
@@ -140,6 +147,7 @@ export function ProcessingProvider({ children }: { children: ReactNode }) {
         isBeingDeleted,
         batchCount,
         batchResumeAt,
+        cooldownEndsAt,
         actions: {
           setProcessingList,
           setIsPaused,

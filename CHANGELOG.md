@@ -13,6 +13,12 @@ Tidarr notable changes.
 - [API] Queue items now carry the Tidal `explicit` flag
 - [API] First unit tests (vitest) + `pnpm test`, run in CI
 
+### ⏳ Download cooldown
+
+- [API] New `DOWNLOAD_COOLDOWN_TRACKS` + `DOWNLOAD_COOLDOWN_SECONDS` env vars: wait N seconds for every N songs downloaded (e.g. 30 seconds every 30 songs) to avoid Tidal rate limits. Songs are counted from the files actually downloaded and carried over between items; the wait is applied between items and is proportional to the songs of the item that just finished
+- [Front] The queue page shows a live "Next download in 28s" countdown while waiting
+- [API] Fix: the batch pause could be bypassed by a concurrent `processQueue()` while a finished download was still being accounted for (the next download could start before the pause took effect); the download slot is now held until then
+
 ### 🎨 Interface
 
 - [Front] **Complete visual redesign**: new design system (dark ink palette, teal → violet accent, Inter/system type scale, 12px rounded surfaces), glass sticky header with a pill search field, segmented quality control and a responsive 3-row layout on phones

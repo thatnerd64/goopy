@@ -31,6 +31,7 @@ Tidarr is a Docker image that provides a web interface to download up to **24-bi
   - [Discography options](#discography-download-mode)
   - [Explicit / clean editions](#explicit--clean-editions)
   - [Rate-limited download mode](#rate-limited-download-mode)
+  - [Wait between downloads (cooldown)](#wait-between-downloads-cooldown)
   - [Sync playlists and mixes](#sync-playlists-and-mixes)
   - [Custom CSS](#custom-css)
   - [Download History](#download-history)
@@ -355,6 +356,30 @@ environment:
 > `DOWNLOAD_BATCH_SIZE` and `DOWNLOAD_BATCH_DELAY` can be used independently:
 > - `DOWNLOAD_BATCH_SIZE` alone: queue auto-pauses after N downloads, resume manually via the UI
 > - Both together: fully automated rate-limited downloading (e.g. 10 albums every hour)
+
+
+### Wait between downloads (cooldown)
+
+When you queue a lot of music, wait a little between downloads to stay under Tidal's rate limits: **`DOWNLOAD_COOLDOWN_SECONDS` of waiting for every `DOWNLOAD_COOLDOWN_TRACKS` songs downloaded.**
+
+```yaml
+environment:
+  - ...
+  - DOWNLOAD_COOLDOWN_TRACKS=30    # every 30 songs downloaded...
+  - DOWNLOAD_COOLDOWN_SECONDS=30   # ...wait 30 seconds before the next download
+```
+
+Both variables are required (the feature is off unless both are set to positive numbers). The queue page shows a live "Next download in 28s" countdown while it waits.
+
+How it works:
+
+- Songs are counted from the files actually downloaded. Albums that `skip_existing` skips download nothing and cost nothing.
+- Counting carries over between items: with 30 / 30, three albums of 12, 12 and 10 songs wait once (after the third, which brings the total to 34 songs; 4 are carried over to the next wait).
+- tiddl downloads a whole album or playlist in one go, so the wait happens **between items, after one has finished**, and it is proportional: a 90-song playlist earns 3 waits (90 seconds) before the next item starts. The long-run rate is exactly the one you configured, but a single huge playlist is not paused in the middle.
+- Post-processing (moving files, Plex refresh, notifications) keeps running during a wait, and **Download now** on an item ignores it.
+
+> [!NOTE]
+> This is different from `DOWNLOAD_BATCH_SIZE` / `DOWNLOAD_BATCH_DELAY` above, which counts *items* and pauses for *minutes*. The two can be combined.
 
 ### Sync playlists and mixes
 

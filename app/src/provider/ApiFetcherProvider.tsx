@@ -33,6 +33,7 @@ type ApiFetcherContextType = {
       setIsPaused: (isPaused: boolean) => void,
       setBatchCount: (count: number) => void,
       setBatchResumeAt: (resumeAt: number | null) => void,
+      setCooldownRemainingMs?: (remainingMs: number | null) => void,
     ) => {
       eventSource: EventSourcePlus;
       controller: EventSourceController;
@@ -205,6 +206,7 @@ export function APIFetcherProvider({ children }: { children: ReactNode }) {
     setIsPaused: (isPaused: boolean) => void,
     setBatchCount: (count: number) => void,
     setBatchResumeAt: (resumeAt: number | null) => void,
+    setCooldownRemainingMs?: (remainingMs: number | null) => void,
   ): {
     eventSource: EventSourcePlus;
     controller: EventSourceController;
@@ -215,11 +217,13 @@ export function APIFetcherProvider({ children }: { children: ReactNode }) {
         isPaused: boolean;
         batchCount: number;
         batchResumeAt: number | null;
+        cooldownRemainingMs?: number | null;
       };
       setData(payload.items);
       setIsPaused(payload.isPaused);
       setBatchCount(payload.batchCount);
       setBatchResumeAt(payload.batchResumeAt);
+      setCooldownRemainingMs?.(payload.cooldownRemainingMs ?? null);
     });
   }
 
