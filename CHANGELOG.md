@@ -13,6 +13,23 @@ Tidarr notable changes.
 - [API] Queue items now carry the Tidal `explicit` flag
 - [API] First unit tests (vitest) + `pnpm test`, run in CI
 
+### 🔒 Security
+
+- [API] **Shell injection fixed**: Gotify / ntfy / Pushover webhook / Apprise notifications were built as `curl` shell commands with the album title and artist name inside, so a title like `$(command)` or a `'` could run commands. They are now sent with native `fetch` (timeout, real HTTP error reporting, secrets no longer logged)
+- [API] **Shell injection / arbitrary deletion fixed** in the processing folder jobs (`rm -rf`, `cp`, `ls`, `find`, `chown`, `chmod`): they no longer go through a shell. Queue item ids are restricted to `[A-Za-z0-9_-]` (API, sync list, Lidarr, stored queue) and resolved paths are checked to stay inside the processing folder
+- [API] The login JWT no longer contains the plaintext admin password (it carries a keyed fingerprint instead). **Existing sessions are logged out once** after upgrading
+- [API] `ADMIN_PASSWORD`, API key and signature checks are constant-time; JWT algorithm is pinned to HS256
+- [API] Login rate limit (10 failures / 15 min / IP, HTTP 429) and new `TRUST_PROXY` env var
+- [API] `/api/stream/sign/:id` now requires a login; stream URLs are no longer signed with the hardcoded `"supersecret"` fallback (the secret was also read before `.env` was loaded); track ids must be numeric; a non-numeric `exp` no longer bypasses the expiry check
+- [API] CORS is **disabled by default** (it was open to every origin). Use the new `CORS_ORIGIN` env var if a browser app on another origin needs the API. Added `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Cache-Control: no-store` on `/api`
+- [API] Lidarr download endpoints validate the album id and quality
+
+### 🐛 Fixed
+
+- [API] Saving `config.toml` was not awaited (a failure was reported as success and crashed the process); invalid TOML is now rejected with the parse error instead of being written
+- [API] M3U path rewriting no longer breaks on library paths containing regex characters (`(`, `+`, `[`...)
+- [API] The stream endpoint fell back to a wrongly-shaped tiddl config
+
 ### 🖍 Changes
 
 - [API] Discography: the old title-only de-duplication (which kept whichever edition Tidal listed first, and merged same-titled albums of different artists) is replaced by the artist + edition-aware selection above

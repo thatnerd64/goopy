@@ -1,14 +1,11 @@
-import { exec, spawn } from "child_process";
+import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
-import { promisify } from "util";
 
 import { CONFIG_PATH, PROCESSING_PATH } from "../../constants";
 import { getAppInstance } from "../helpers/app-instance";
 import { logs } from "../processing/utils/logs";
 import { ProcessingItemType } from "../types";
-
-const execAsync = promisify(exec);
 
 interface ScriptConfig {
   scriptPath: string;
@@ -34,10 +31,9 @@ async function runScript(
   logs(item.id, `🕖 [TIDARR] Executing ${scriptName}...`);
 
   return new Promise((resolve) => {
-    execAsync(`chmod +x "${scriptPath}"`, {
-      encoding: "utf-8",
-      shell: "/bin/sh",
-    })
+    fs.promises
+      .stat(scriptPath)
+      .then((stats) => fs.promises.chmod(scriptPath, stats.mode | 0o111))
       .then(() => {
         const scriptProcess = spawn("sh", [scriptPath], {
           cwd,

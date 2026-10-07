@@ -24,6 +24,7 @@ Tidarr is a Docker image that provides a web interface to download up to **24-bi
   - [PUID/PGID/UMASK](#puid-pgid-umask)
   - [Listening port](#listening-port)
   - [Password protection](#password-protection)
+  - [Security hardening](#security-hardening)
   - [OpenID Connect (OIDC) Authentication](#openid-connect-oidc-authentication)
   - [Lock quality selector](#lock-quality-selector)
   - [Playlist options](#playlist-options)
@@ -212,6 +213,27 @@ environment:
   - ...
   - ADMIN_PASSWORD=<string> # if not set, no password are required to access
 ```
+
+### Security hardening
+
+- **Login rate limit**: after 10 wrong passwords in 15 minutes an IP address is blocked for the rest of the window (HTTP 429). Behind a reverse proxy, set `TRUST_PROXY` so Tidarr sees the real client IP instead of the proxy's (otherwise all your users share one counter):
+
+```yaml
+environment:
+  - ...
+  - TRUST_PROXY=1            # number of proxies in front of Tidarr; also accepts "true", "loopback", a CIDR...
+```
+
+- **CORS is disabled by default.** The web interface is served by Tidarr itself and does not need it. If another website must call the API from a browser, allow it explicitly:
+
+```yaml
+environment:
+  - ...
+  - CORS_ORIGIN=https://dashboard.example.com,https://other.example.com   # or * for any origin
+```
+
+- **Set `JWT_SECRET`** to keep users logged in across restarts (a random one is generated at each start otherwise). Changing `ADMIN_PASSWORD` or `JWT_SECRET` logs everyone out.
+- Item ids are restricted to letters, digits, `-` and `_`; notifications (Gotify, ntfy, Pushover webhook, Apprise) are sent natively over HTTP instead of through shell commands; the in-app audio player needs a login to get a stream URL.
 
 ### OpenID Connect (OIDC) Authentication
 

@@ -128,9 +128,10 @@ export type SyncItemType = {
  * Authentication responses
  */
 export interface AuthResponse {
-  status: "ok" | "error";
+  accessGranted?: boolean;
   token?: string;
-  error?: string;
+  error?: boolean;
+  message?: string;
 }
 
 export interface IsAuthActiveResponse {

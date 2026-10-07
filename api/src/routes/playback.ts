@@ -2,19 +2,28 @@ import { Router } from "express";
 import { pipeline } from "stream";
 import { promisify } from "util";
 
+import { ensureAccessIsGranted } from "../helpers/auth";
 import { get_tiddl_config } from "../helpers/get_tiddl_config";
-import { signUrl } from "../helpers/signature";
+import { signUrl, verifySignature } from "../helpers/signature";
 import { getPlaybackInfo } from "../services/playback";
 
 const streamPipeline = promisify(pipeline);
 const router = Router();
 
-// Endpoint firm URL
-router.get("/stream/sign/:id", (req, res) => {
-  const { id } = req.params;
-  if (!id) return res.status(400).json({ error: "Missing id" });
+// Tidal track ids are numeric; the id ends up in a Tidal API URL
+const TRACK_ID = /^\d{1,20}$/;
+const SIGNED_URL_TTL_SECONDS = 300;
+const MAX_SIGNED_URL_TTL_SECONDS = 3600;
 
-  const expires = Math.floor(Date.now() / 1000) + 300;
+// Endpoint firm URL. Needs a valid login: the <audio> element cannot send
+// an Authorization header, so it plays the signed URL returned here instead.
+router.get("/stream/sign/:id", ensureAccessIsGranted, (req, res) => {
+  const id = String(req.params.id ?? "");
+  if (!TRACK_ID.test(id)) {
+    return res.status(400).json({ error: "Invalid track id" });
+  }
+
+  const expires = Math.floor(Date.now() / 1000) + SIGNED_URL_TTL_SECONDS;
   const sig = signUrl(id, expires);
 
   const url = `/api/stream/play/${id}?exp=${expires}&sig=${sig}`;
@@ -24,25 +33,37 @@ router.get("/stream/sign/:id", (req, res) => {
 
 // Endpoint play
 router.get("/stream/play/:id", async (req, res) => {
-  const { id } = req.params;
-  const { exp, sig } = req.query as { exp?: string; sig?: string };
+  const id = String(req.params.id ?? "");
+  const { exp, sig } = req.query as { exp?: unknown; sig?: unknown };
 
-  if (!exp || !sig) {
+  if (!TRACK_ID.test(id)) {
+    return res.status(400).json({ error: "Invalid track id" });
+  }
+
+  if (typeof exp !== "string" || typeof sig !== "string") {
     return res.status(403).json({ error: "Missing signature" });
   }
 
-  const expires = parseInt(exp, 10);
-  if (Date.now() / 1000 > expires) {
+  // Strict integer: parseInt("abc") is NaN and NaN passes any "expired" comparison
+  if (!/^\d{1,12}$/.test(exp)) {
+    return res.status(403).json({ error: "Invalid signature" });
+  }
+  const expires = Number(exp);
+  const now = Math.floor(Date.now() / 1000);
+
+  if (now > expires) {
     return res.status(403).json({ error: "URL expired" });
   }
 
-  const expected = signUrl(id, expires);
-  if (sig !== expected) {
+  if (
+    expires - now > MAX_SIGNED_URL_TTL_SECONDS ||
+    !verifySignature(id, expires, sig)
+  ) {
     return res.status(403).json({ error: "Invalid signature" });
   }
 
   try {
-    const tiddlConfig = req.app.locals.tiddlConfig || get_tiddl_config();
+    const tiddlConfig = req.app.locals.tiddlConfig || get_tiddl_config().config;
     const token = tiddlConfig?.auth?.token;
     const country = tiddlConfig?.auth?.country_code || "EN";
 

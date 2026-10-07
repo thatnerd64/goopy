@@ -57,6 +57,14 @@ router.get(
   async (req: Request, res: Response) => {
     try {
       const { id, quality } = req.params;
+      // Both values end up in a Tidal URL, an NZB file and a response header
+      if (
+        !/^\d{1,20}$/.test(String(id)) ||
+        !/^[a-z_]{1,32}$/.test(String(quality))
+      ) {
+        res.status(400).json({ error: "Invalid album id or quality" });
+        return;
+      }
       await handleDownloadFromLidarr(String(id), res, String(quality));
     } catch (error) {
       handleRouteError(error, res, "Lidarr download");

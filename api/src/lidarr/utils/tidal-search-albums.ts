@@ -51,6 +51,13 @@ export async function addAlbumToQueue(
   id: string,
   quality?: string | null,
 ): Promise<void> {
+  if (!/^\d{1,20}$/.test(id)) {
+    console.error(
+      `❌ [Lidarr] Ignoring invalid album id: ${JSON.stringify(id)}`,
+    );
+    return;
+  }
+
   const app = getAppInstance();
   const countryCode = app.locals.tiddlConfig?.auth?.country_code || "US";
   const albumUrl = `${TIDAL_API_URL}/v1/albums/${id}?countryCode=${countryCode}`;

@@ -6,7 +6,11 @@ import {
   handleValidationError,
 } from "../helpers/error-handler";
 import { validateRequestBody } from "../helpers/validation";
-import { getTomlConfig, setTomlConfig } from "../services/tiddl-toml";
+import {
+  getTomlConfig,
+  setTomlConfig,
+  validateToml,
+} from "../services/tiddl-toml";
 import { TiddlTomlResponse, TiddlTomlSaveResponse } from "../types";
 
 const router = Router();
@@ -36,7 +40,7 @@ router.post(
   "/tiddl/config",
   ensureAccessIsGranted,
   validateRequestBody(["toml"]),
-  (req: Request, res: Response<TiddlTomlSaveResponse>) => {
+  async (req: Request, res: Response<TiddlTomlSaveResponse>) => {
     try {
       const { toml } = req.body;
 
@@ -45,7 +49,14 @@ router.post(
         return;
       }
 
-      setTomlConfig(toml);
+      // An invalid file would break every download until it is fixed by hand
+      const parseError = validateToml(toml);
+      if (parseError) {
+        handleValidationError(res, `Invalid TOML: ${parseError}`);
+        return;
+      }
+
+      await setTomlConfig(toml);
       res
         .status(200)
         .json({ success: true, message: "Tiddl config saved successfully" });

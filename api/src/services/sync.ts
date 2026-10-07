@@ -2,6 +2,7 @@ import { Express } from "express";
 import cron from "node-cron";
 
 import { SYNC_DEFAULT_CRON } from "../../constants";
+import { isSafeId } from "../helpers/safe-id";
 import { ProcessingItemType, SyncItemType } from "../types";
 
 import { syncListDb } from "./db-json";
@@ -118,6 +119,13 @@ export const process_sync_list = async (app: Express) => {
       element.id,
     );
     if (element.paused) continue;
+
+    if (!isSafeId(element.id)) {
+      console.warn(
+        `⚠️ [SYNC] Skipping item with an unsafe id: ${JSON.stringify(element.id)}`,
+      );
+      continue;
+    }
 
     if (
       item &&

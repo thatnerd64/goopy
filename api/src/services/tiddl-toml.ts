@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import toml from "toml";
 
 import { CONFIG_PATH } from "../../constants";
 import { getAppInstance } from "../helpers/app-instance";
@@ -20,6 +21,22 @@ export function getTomlConfig(): { toml: string } {
   } catch (error) {
     console.error("❌ [TOML] Error reading .tiddl/config.toml:", error);
     return { toml: "" };
+  }
+}
+
+/**
+ * Returns a human readable parse error, or null when the TOML is valid.
+ */
+export function validateToml(content: string): string | null {
+  try {
+    toml.parse(content);
+    return null;
+  } catch (error) {
+    const err = error as Error & { line?: number; column?: number };
+    const position = err.line
+      ? ` (line ${err.line}, column ${err.column})`
+      : "";
+    return `${err.message}${position}`;
   }
 }
 

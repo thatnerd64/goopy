@@ -1,15 +1,41 @@
-import { ChildProcess, exec } from "child_process";
+import { ChildProcess, execFile } from "child_process";
 import fs from "fs";
 import path from "path";
 import { promisify } from "util";
 
-const execAsync = promisify(exec);
-
 import { NZB_DOWNLOAD_PATH, PROCESSING_PATH } from "../../../constants";
 import { getAppInstance } from "../../helpers/app-instance";
+import { resolveInside } from "../../helpers/safe-id";
 import { ProcessingItemType } from "../../types";
 
 import { logs } from "./logs";
+
+// No shell anywhere in this file: paths come from tiddl config / item ids and
+// must never be interpreted as shell syntax (quotes, $(), backticks, ;).
+const execFileAsync = promisify(execFile);
+
+// Same as the shell glob `dir/*`: hidden entries are not matched
+async function listVisibleEntries(dir: string): Promise<string[]> {
+  const names = await fs.promises.readdir(dir);
+  return names.filter((name) => !name.startsWith("."));
+}
+
+// Recursive list of regular files (symlinks are not followed, like `find -type f`)
+async function listFilesRecursive(dir: string): Promise<string[]> {
+  const files: string[] = [];
+  const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listFilesRecursive(fullPath)));
+    } else if (entry.isFile()) {
+      files.push(fullPath);
+    }
+  }
+  return files;
+}
+
+const COPY_CHUNK_SIZE = 200;
 
 export async function moveAndClean(id: string): Promise<{
   status: "finished" | "error" | undefined;
@@ -21,7 +47,7 @@ export async function moveAndClean(id: string): Promise<{
 
   if (!item) return { status: "finished" };
 
-  const itemProcessingPath = `${PROCESSING_PATH}/${item.id}`;
+  const itemProcessingPath = resolveInside(PROCESSING_PATH, String(item.id));
   const libraryPath = app.locals.tiddlConfig?.download?.download_path;
 
   if (!libraryPath) {
@@ -44,9 +70,19 @@ export async function moveAndClean(id: string): Promise<{
       args = "-rfp";
     }
 
-    const cmd = `cp ${args} "${itemProcessingPath}"/* "${libraryPath}" >/dev/null`;
-    console.log(`🕖 [TIDARR] Command: ${cmd}`);
-    await execAsync(cmd, { encoding: "utf-8", shell: "/bin/sh" });
+    const sources = (await listVisibleEntries(itemProcessingPath)).map((name) =>
+      path.join(itemProcessingPath, name),
+    );
+    console.log(
+      `🕖 [TIDARR] Command: cp ${args} <${sources.length} entries> "${libraryPath}"`,
+    );
+    for (let i = 0; i < sources.length; i += COPY_CHUNK_SIZE) {
+      await execFileAsync("cp", [
+        args,
+        ...sources.slice(i, i + COPY_CHUNK_SIZE),
+        libraryPath,
+      ]);
+    }
     logs(item.id, `✅ [TIDARR] Move complete (${item.type})`);
     status = "finished";
   } catch (e: unknown) {
@@ -82,28 +118,30 @@ export async function cleanFolder(
     processingPath = NZB_DOWNLOAD_PATH;
   }
 
-  const targetPath = itemId
-    ? `${processingPath}/${itemId}`
-    : `${processingPath}/*`;
-
-  // Check if target exists before attempting to remove
-  if (itemId) {
-    // For specific item, check if directory exists
-    if (!fs.existsSync(targetPath)) {
-      return "finished";
-    }
-  } else {
-    // For wildcard cleanup, check if processing folder exists
-    if (!fs.existsSync(processingPath)) {
-      return "finished";
-    }
-  }
-
+  // Single item: resolveInside refuses ids that would escape the processing folder
+  let targets: string[];
   try {
-    await execAsync(`rm -rf ${targetPath}`, {
-      encoding: "utf-8",
-      shell: "/bin/sh",
-    });
+    if (itemId) {
+      const targetPath = resolveInside(processingPath, itemId);
+      if (!fs.existsSync(targetPath)) {
+        return "finished";
+      }
+      targets = [targetPath];
+    } else {
+      // Wildcard cleanup of the whole processing folder
+      if (!fs.existsSync(processingPath)) {
+        return "finished";
+      }
+      targets = (await listVisibleEntries(processingPath)).map((name) =>
+        path.join(processingPath, name),
+      );
+    }
+
+    await Promise.all(
+      targets.map((target) =>
+        fs.promises.rm(target, { recursive: true, force: true }),
+      ),
+    );
     console.log(
       `🧹 [TIDARR] Cleaned up processing folder ${itemId ? ` (item: ${itemId})` : ""}`,
     );
@@ -124,16 +162,7 @@ export async function hasFileToMove(pathArg?: string): Promise<boolean> {
   }
 
   try {
-    const { stdout } = await execAsync(`ls "${targetPath}"`, {
-      encoding: "utf-8",
-      shell: "/bin/sh",
-    });
-    const filesToCopy = stdout
-      .trim()
-      .split("\n")
-      .filter((file: string) => file);
-
-    return filesToCopy.length > 0;
+    return (await listVisibleEntries(targetPath)).length > 0;
   } catch (error) {
     // Directory might be empty or not accessible
     console.error("❌ [TIDARR] Error checking files to move:", error);
@@ -147,7 +176,7 @@ export async function replacePathInM3U(
   if (item["type"] !== "playlist" && item["type"] !== "mix") return;
 
   const basePath = process.env.M3U_BASEPATH_FILE?.replaceAll('"', "") || ".";
-  const downloadDir = `${PROCESSING_PATH}/${item.id}`;
+  const downloadDir = resolveInside(PROCESSING_PATH, String(item.id));
   const app = getAppInstance();
   const libraryPath = app.locals.tiddlConfig?.download?.download_path;
 
@@ -162,10 +191,9 @@ export async function replacePathInM3U(
   logs(item.id, `🕖 [TIDARR] Update track path in M3U file ...`);
 
   try {
-    const { stdout } = await execAsync(`find "${downloadDir}" -name "*.m3u"`, {
-      encoding: "utf-8",
-    });
-    const m3uFilePath = stdout.trim();
+    const m3uFilePath = (await listFilesRecursive(downloadDir)).find((file) =>
+      file.endsWith(".m3u"),
+    );
 
     if (!m3uFilePath) {
       logs(item.id, `⚠️ [TIDARR] No M3U file found`);
@@ -177,9 +205,10 @@ export async function replacePathInM3U(
 
     // Replace paths in two steps:
     // 1. Replace processing path: /music/.processing/{item.id}/ -> ./
-    m3uContent = m3uContent.replace(new RegExp(downloadDir, "g"), basePath);
+    // (plain string replacement: paths may contain regex metacharacters)
+    m3uContent = m3uContent.replaceAll(downloadDir, basePath);
     // 2. Replace library path: /music/ -> ./
-    m3uContent = m3uContent.replace(new RegExp(libraryPath, "g"), basePath);
+    m3uContent = m3uContent.replaceAll(libraryPath, basePath);
 
     // Use fs.writeFileSync instead of shell `echo` to preserve $ characters in artist names
     fs.writeFileSync(m3uFilePath, m3uContent, "utf-8");
@@ -196,24 +225,29 @@ export async function setPermissions(
   item: ProcessingItemType,
   basePath = PROCESSING_PATH,
 ) {
-  const itemProcessingPath = `${basePath}/${item.id}`;
+  const itemProcessingPath = resolveInside(basePath, String(item.id));
 
   if (process.env.PUID && process.env.PGID) {
-    try {
-      const { stdout } = await execAsync(
-        `chown -R ${process.env.PUID}:${process.env.PGID} "${itemProcessingPath}"`,
-        {
-          encoding: "utf-8",
-          shell: "/bin/sh",
-        },
-      );
-      logs(
-        item.id,
-        `🔑 [TIDARR] Chown PUID:PGID: ${process.env.PUID}:${process.env.PGID} - ${stdout}`,
-      );
-    } catch {
-      // Ignore error if directory is empty
-      logs(item.id, `⚠️ [TIDARR] Chown skipped (no files in download folder)`);
+    if (!/^\d+$/.test(process.env.PUID) || !/^\d+$/.test(process.env.PGID)) {
+      logs(item.id, `⚠️ [TIDARR] Chown skipped (PUID/PGID must be numeric)`);
+    } else {
+      try {
+        await execFileAsync("chown", [
+          "-R",
+          `${process.env.PUID}:${process.env.PGID}`,
+          itemProcessingPath,
+        ]);
+        logs(
+          item.id,
+          `🔑 [TIDARR] Chown PUID:PGID: ${process.env.PUID}:${process.env.PGID}`,
+        );
+      } catch {
+        // Ignore error if directory is empty
+        logs(
+          item.id,
+          `⚠️ [TIDARR] Chown skipped (no files in download folder)`,
+        );
+      }
     }
   }
 
@@ -227,22 +261,28 @@ export async function setPermissions(
       const dirMode = (0o777 & ~umaskValue).toString(8);
 
       // Apply file permissions to regular files
-      await execAsync(
-        `find "${itemProcessingPath}" -type f -exec chmod ${fileMode} {} +`,
-        {
-          encoding: "utf-8",
-          shell: "/bin/sh",
-        },
-      );
+      await execFileAsync("find", [
+        itemProcessingPath,
+        "-type",
+        "f",
+        "-exec",
+        "chmod",
+        fileMode,
+        "{}",
+        "+",
+      ]);
 
       // Apply directory permissions to directories
-      await execAsync(
-        `find "${itemProcessingPath}" -type d -exec chmod ${dirMode} {} +`,
-        {
-          encoding: "utf-8",
-          shell: "/bin/sh",
-        },
-      );
+      await execFileAsync("find", [
+        itemProcessingPath,
+        "-type",
+        "d",
+        "-exec",
+        "chmod",
+        dirMode,
+        "{}",
+        "+",
+      ]);
 
       logs(
         item.id,
@@ -271,18 +311,17 @@ export async function setPermissions(
  */
 export async function getFolderToScan(itemId: string): Promise<string[]> {
   const foldersToScan: string[] = [];
-  const itemProcessingPath = `${PROCESSING_PATH}/${itemId}`;
 
   try {
+    const itemProcessingPath = resolveInside(PROCESSING_PATH, String(itemId));
+
     // Find all files (not directories) in the item's processing directory
-    const { stdout } = await execAsync(
-      `find "${itemProcessingPath}" -type f 2>/dev/null || true`,
-      { encoding: "utf-8", shell: "/bin/sh" },
+    const allFiles = await listFilesRecursive(itemProcessingPath).catch(
+      (error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return [];
+        throw error;
+      },
     );
-    const allFiles = stdout
-      .trim()
-      .split("\n")
-      .filter((file: string) => file);
 
     if (allFiles.length === 0) {
       console.log("📁 [TIDARR] No files found in processing folder");

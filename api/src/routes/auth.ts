@@ -1,10 +1,15 @@
 import { Request, Response, Router } from "express";
 
+import { FailureLimiter } from "../helpers/rate-limit";
 import { validateRequestBody } from "../helpers/validation";
 import { get_auth_type, is_auth_active, proceed_auth } from "../services/auth";
 import { AuthResponse, IsAuthActiveResponse } from "../types";
 
 const router = Router();
+
+// 10 wrong passwords per 15 minutes and per IP (set TRUST_PROXY behind a reverse proxy)
+const loginLimiter = new FailureLimiter(10, 15 * 60 * 1000);
+setInterval(() => loginLimiter.prune(), 15 * 60 * 1000).unref();
 
 /**
  * POST /api/auth
@@ -14,7 +19,21 @@ router.post(
   "/auth",
   validateRequestBody(["password"]),
   async (req: Request, res: Response<AuthResponse>) => {
-    await proceed_auth(req.body.password, res);
+    const client = req.ip ?? "unknown";
+
+    const retryAfter = loginLimiter.retryAfterSeconds(client);
+    if (retryAfter > 0) {
+      res.setHeader("Retry-After", String(retryAfter));
+      res.status(429).json({
+        error: true,
+        message: `Too many failed attempts. Try again in ${Math.ceil(retryAfter / 60)} minute(s).`,
+      });
+      return;
+    }
+
+    const granted = await proceed_auth(req.body.password, res);
+    if (granted) loginLimiter.reset(client);
+    else loginLimiter.recordFailure(client);
   },
 );
 
