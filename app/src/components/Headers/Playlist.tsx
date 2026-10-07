@@ -31,7 +31,7 @@ export default function PlaylistHeader({
         >
           <Chip
             label={`${Math.round(playlist.duration / 60)} min.`}
-            color="success"
+            variant="outlined"
             size="small"
           />
           <Chip label={`${playlist.numberOfTracks} tracks`} size="small" />

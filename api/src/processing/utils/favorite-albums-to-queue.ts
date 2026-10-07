@@ -3,12 +3,18 @@ import { getAppInstance } from "../../helpers/app-instance";
 import { fetchAllTidalPages } from "../../helpers/fetch-tidal";
 import { ProcessingItemType, TiddlConfig } from "../../types";
 
+import {
+  describeSkipped,
+  getExplicitPreference,
+  resolveEditions,
+} from "./explicit-filter";
 import { logs } from "./logs";
 
 type FavoriteAlbumItem = {
   item: {
     id: number;
     title: string;
+    explicit?: boolean;
     artist?: { name?: string };
     artists?: Array<{ name?: string }>;
   };
@@ -40,20 +46,39 @@ export async function getFavoriteAlbums(
 
     logs(item.id, `📊 [FAV] Found ${favoriteAlbums.length} favorite albums`);
 
-    const newItems: ProcessingItemType[] = favoriteAlbums
-      .filter(({ item: album }) => !!album)
-      .map(({ item: album }) => ({
-        id: String(album.id),
-        url: `album/${album.id}`,
-        type: "album",
-        status: "queue_download",
-        loading: false,
-        artist: album.artists?.[0]?.name || album.artist?.name || "",
-        title: album.title,
-        quality: item.quality,
-        error: false,
-        source: "tidarr",
-      }));
+    // Both editions of an album can be favorited: keep one, so the clean and
+    // explicit tracks are not downloaded into the same folder
+    const preference = getExplicitPreference();
+    const { selected, skipped } = resolveEditions(
+      favoriteAlbums
+        .filter(({ item: album }) => !!album)
+        .map(({ item: album }) => ({
+          id: album.id,
+          title: album.title,
+          explicit: album.explicit,
+          artist: album.artists?.[0]?.name || album.artist?.name || "",
+        })),
+      app.locals.processingStack.data,
+      preference,
+    );
+
+    if (skipped.length > 0) {
+      logs(item.id, describeSkipped(skipped, preference));
+    }
+
+    const newItems: ProcessingItemType[] = selected.map((album) => ({
+      id: String(album.id),
+      url: `album/${album.id}`,
+      type: "album",
+      status: "queue_download",
+      loading: false,
+      artist: album.artist,
+      title: album.title,
+      explicit: album.explicit,
+      quality: item.quality,
+      error: false,
+      source: "tidarr",
+    }));
 
     await app.locals.processingStack.actions.addItems(newItems, true);
 

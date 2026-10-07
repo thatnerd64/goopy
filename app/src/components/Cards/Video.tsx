@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 import styled from "@emotion/styled";
 import { PlayArrow, VideoFile } from "@mui/icons-material";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import {
   Box,
-  Button,
   Chip,
   Link,
   Paper,
@@ -14,166 +13,116 @@ import {
   useTheme,
 } from "@mui/material";
 import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import Typography from "@mui/material/Typography";
 import { TIDAL_VIDEO_URL } from "src/contants";
 import { VideoType } from "src/types";
 
 import { DownloadButton } from "../Buttons/DownloadButton";
 import { DialogHandler } from "../Dialog";
 
-import { ArtistAvatar } from "./common/ArtistAvatar";
 import ImageLazy from "./common/ImageLazy";
 
 export default function VideoCard({ video }: { video: VideoType }) {
   const [showModal, setShowModal] = useState<boolean>(false);
-  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   return (
     <>
-      <Card sx={{ position: "relative" }}>
-        <Stack
-          direction="row"
-          spacing={1}
-          style={{
-            padding: "0.4rem 0.5rem 0.5rem",
-            backgroundColor: "rgba(255, 255, 255, 0.04)",
-          }}
-          sx={{
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
+      <Card
+        sx={{
+          position: "relative",
+          "&:hover": {
+            borderColor: "rgba(255,255,255,.2)",
+            transform: "translateY(-2px)",
+          },
+        }}
+      >
+        <PlayButton
+          onClick={() => setShowModal(true)}
+          aria-label={`Play ${video.title}`}
         >
-          <ArtistAvatar
-            alt={video.artists?.[0]?.name}
-            src={`https://resources.tidal.com/images/${video.artists?.[0]?.picture?.replace(
+          <ImageLazy
+            height="100%"
+            width="100%"
+            src={`https://resources.tidal.com/images/${video.imageId?.replace(
               /-/g,
               "/",
             )}/750x750.jpg`}
+            alt={`${video.title} thumbnail`}
+            style={{
+              objectFit: "cover",
+              width: "100%",
+              height: "190px",
+            }}
           />
-          <div style={{ lineHeight: 1.4, flex: "1 1 0" }}>
+          <PlayBadge aria-hidden="true">
+            <PlayArrow sx={{ fontSize: "2rem" }} />
+          </PlayBadge>
+        </PlayButton>
+
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1, p: 1.5 }}>
+          <Box>
             <Link
               href={`https://tidal.com/browse/video/${video.id}`}
-              style={{ lineHeight: 1.4 }}
               target="_blank"
+              rel="noreferrer"
               underline="none"
+              sx={{
+                color: "text.primary",
+                fontSize: "0.95rem",
+                fontWeight: 700,
+                lineHeight: 1.25,
+                "&:hover": { color: "primary.light" },
+              }}
             >
-              <Typography
-                component="span"
-                style={{ lineHeight: 1, fontSize: "0.875rem" }}
-              >
-                <strong>{video.title}</strong>
-              </Typography>
+              {video.title}
               <OpenInNewIcon
-                style={{
+                sx={{
+                  fontSize: 14,
+                  ml: 0.75,
+                  opacity: 0.5,
                   verticalAlign: "middle",
-                  marginLeft: "0.5rem",
-                  fontSize: 16,
                 }}
               />
             </Link>
-            {` `}
-            <Typography
-              variant="subtitle2"
-              component="span"
-              style={{ lineHeight: 1 }}
-              sx={{
-                color: "text.secondary",
-              }}
-            >
-              {` `}by{` `}
-              <Button
-                variant="text"
-                size="small"
-                color="inherit"
-                style={{ padding: "0 0.15rem" }}
-                onClick={() => {
-                  navigate(`/artist/${video.artists[0].id}`);
+            <Box>
+              <Link
+                component={RouterLink}
+                to={`/artist/${video.artists[0].id}`}
+                underline="hover"
+                sx={{
+                  color: "text.secondary",
+                  fontSize: "0.85rem",
+                  "&:hover": { color: "text.primary" },
                 }}
               >
-                <strong>{video.artists?.[0]?.name}</strong>
-              </Button>
-            </Typography>
-          </div>
-        </Stack>
-        <Stack direction="column">
-          <PlayButton onClick={() => setShowModal(true)}>
-            <Box style={{}}>
-              <ImageLazy
-                height="100%"
-                width="100%"
-                src={`https://resources.tidal.com/images/${video.imageId?.replace(
-                  /-/g,
-                  "/",
-                )}/750x750.jpg`}
-                alt="Live from space album cover"
-                style={{
-                  objectFit: "cover",
-                  width: "100%",
-                  height: "220px",
-                }}
-              />
-              <PlayArrow
-                sx={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  color: "white",
-                  opacity: 0.7,
-                  fontSize: "3rem",
-                }}
-              />
+                {video.artists?.[0]?.name}
+              </Link>
             </Box>
-          </PlayButton>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              flex: "1 1 0",
-              position: "relative",
-            }}
-          >
-            <CardContent
-              sx={{ flex: "0 0 auto", padding: "0.5rem 1rem !important" }}
-            >
-              <Stack
-                direction="row"
-                sx={{
-                  flexWrap: "wrap",
-                  gap: 2,
-                  alignItems: "center",
-                  padding: 0.5,
-                }}
-              >
-                <Box
-                  sx={{
-                    flex: "1 1 0",
-                  }}
-                >
-                  <Chip
-                    label={`${Math.round(video.duration / 60)} min.`}
-                    color="success"
-                    size="small"
-                  />
-                </Box>
-                <Box>
-                  <DownloadButton
-                    item={{
-                      ...video,
-                      url: `${TIDAL_VIDEO_URL}/${video.id}`,
-                    }}
-                    id={video.id}
-                    type="video"
-                    label="Get video"
-                  />
-                </Box>
-              </Stack>
-            </CardContent>
           </Box>
-        </Stack>
+
+          <Stack
+            direction="row"
+            sx={{ alignItems: "center", flexWrap: "wrap", gap: 1 }}
+          >
+            <Chip
+              label={`${Math.round(video.duration / 60)} min.`}
+              size="small"
+              variant="outlined"
+              sx={{ flex: "0 0 auto" }}
+            />
+            <Box sx={{ flex: "1 1 0" }} />
+            <DownloadButton
+              item={{
+                ...video,
+                url: `${TIDAL_VIDEO_URL}/${video.id}`,
+              }}
+              id={video.id}
+              type="video"
+              label="Get video"
+            />
+          </Stack>
+        </Box>
       </Card>
       <DialogHandler
         title={video.title}
@@ -197,20 +146,39 @@ export default function VideoCard({ video }: { video: VideoType }) {
 }
 
 const PlayButton = styled.button`
-  background-color: black;
+  background-color: #000;
   border: 0;
   cursor: pointer;
   display: block;
   padding: 0;
   position: relative;
+  width: 100%;
 
   img {
-    transition: opacity 300ms ease;
+    transition:
+      opacity 300ms ease,
+      transform 400ms ease;
   }
 
-  &:hover {
-    img {
-      opacity: 0.3;
-    }
+  &:hover img {
+    opacity: 0.7;
+    transform: scale(1.03);
   }
+`;
+
+const PlayBadge = styled.span`
+  align-items: center;
+  backdrop-filter: blur(6px);
+  background: rgba(10, 12, 16, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  height: 3.5rem;
+  justify-content: center;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 3.5rem;
 `;

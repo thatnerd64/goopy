@@ -1,6 +1,7 @@
 import { Express, Response } from "express";
 
 import { getAppInstance } from "../../helpers/app-instance";
+import { assertSafeId, isSafeId } from "../../helpers/safe-id";
 import {
   addItemsToFile,
   addItemToFile,
@@ -105,6 +106,14 @@ export const ProcessingStack = () => {
 
     const records = await loadQueueFromFile();
     records.forEach((record) => {
+      // The id is used as a folder name: never trust a stored one blindly
+      if (!isSafeId(record?.id)) {
+        console.warn(
+          `⚠️ [QUEUE] Ignoring queue entry with an unsafe id: ${JSON.stringify(record?.id)}`,
+        );
+        return;
+      }
+
       // Reset any items that were in-progress during a crash back to appropriate state
       if (
         record.status === "download" ||
@@ -153,6 +162,9 @@ export const ProcessingStack = () => {
   }
 
   async function addItem(item: ProcessingItemType, insertAtFront?: boolean) {
+    // Single choke point for every entry (API, sync cron, Lidarr, bulk expansion)
+    assertSafeId(item.id, "item id");
+
     if (dataMap.has(item.id)) {
       await removeItem(item.id);
     }
@@ -175,6 +187,8 @@ export const ProcessingStack = () => {
     items: ProcessingItemType[],
     insertAtFront?: boolean,
   ) {
+    items.forEach((item) => assertSafeId(item.id, "item id"));
+
     const newItems = items.filter((item) => !dataMap.has(item.id));
     if (newItems.length === 0) return;
 

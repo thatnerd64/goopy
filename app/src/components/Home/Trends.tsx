@@ -20,7 +20,7 @@ export default function Trends() {
   }, [data, loading, queryModules]);
 
   return (
-    <Box sx={{ bgcolor: "background.paper" }}>
+    <Box sx={{ pb: 4 }}>
       {data?.rows?.map((row, index1) => (
         <Box
           key={`block-${index1}`}

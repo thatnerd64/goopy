@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   Box,
   Button,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -31,18 +30,22 @@ export function ProcessingTable({ items, ariaLabel, emptyMessage }: Props) {
   const remaining = items.length - visibleCount;
 
   return (
-    <Paper>
+    <Box>
       <TableContainer>
         <Table aria-label={ariaLabel} size="small">
           <TableHead>
             <TableRow>
-              <TableCell>
-                <strong>Status</strong>
-              </TableCell>
+              <TableCell>Status</TableCell>
               <TableCell>Title</TableCell>
-              <TableCell>Artist</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Quality</TableCell>
+              <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
+                Artist
+              </TableCell>
+              <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
+                Type
+              </TableCell>
+              <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
+                Quality
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -79,6 +82,6 @@ export function ProcessingTable({ items, ariaLabel, emptyMessage }: Props) {
           </Button>
         </Box>
       )}
-    </Paper>
+    </Box>
   );
 }

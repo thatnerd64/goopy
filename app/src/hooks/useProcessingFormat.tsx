@@ -32,6 +32,7 @@ export function useProcessingFormat() {
         id,
         artist: extractArtist(item, type),
         title: extractTitle(item, type),
+        explicit: extractExplicit(item, type),
         type,
         quality,
         atmosFilter,
@@ -72,6 +73,15 @@ function extractArtist(
     default:
       return (item as TrackType | AlbumType).artists?.[0]?.name || "";
   }
+}
+
+function extractExplicit(
+  item: TidalItemType | SyncItemType,
+  type: ContentType,
+): boolean | undefined {
+  if (type !== "album" && type !== "track") return undefined;
+  const explicit = (item as AlbumType | TrackType).explicit;
+  return typeof explicit === "boolean" ? explicit : undefined;
 }
 
 function extractUrl(item: TidalItemType | SyncItemType): string {

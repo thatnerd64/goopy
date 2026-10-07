@@ -8,7 +8,7 @@ import { useConfigProvider } from "src/provider/ConfigProvider";
 import { DialogHandler } from ".";
 
 const markdownSx = {
-  "& a": { color: "rgb(144, 202, 249)" },
+  "& a": { color: "#86f0e0" },
   "& ul": { pl: 2, pb: 2 },
   mb: 2,
 };

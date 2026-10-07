@@ -1,4 +1,3 @@
-import cors from "cors";
 import dotenv from "dotenv";
 import express, { Express, Response } from "express";
 import fs from "fs";
@@ -8,6 +7,12 @@ import { setAppInstance } from "./src/helpers/app-instance";
 import { checkConfig } from "./src/helpers/check-config";
 import { get_tiddl_config } from "./src/helpers/get_tiddl_config";
 import { gracefulShutdown } from "./src/helpers/gracefull_shutdown";
+import {
+  buildCorsMiddleware,
+  noStore,
+  parseTrustProxy,
+  securityHeaders,
+} from "./src/helpers/http-security";
 import { logExpiresToken } from "./src/helpers/refresh-token";
 import { ProcessingStack } from "./src/processing/core/processing-manager";
 import { cleanFolder } from "./src/processing/utils/jobs";
@@ -48,9 +53,21 @@ const app: Express = express();
 // Make app instance available globally
 setAppInstance(app);
 
+app.disable("x-powered-by");
+
+// Behind a reverse proxy, set TRUST_PROXY so req.ip is the real client (login rate limit)
+const trustProxy = parseTrustProxy();
+if (trustProxy !== undefined) app.set("trust proxy", trustProxy);
+
+app.use(securityHeaders);
+app.use("/api", noStore);
+
+// CORS is disabled unless CORS_ORIGIN is set (see README)
+const corsMiddleware = buildCorsMiddleware();
+if (corsMiddleware) app.use(corsMiddleware);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(cors());
 
 // Setup all API proxies (Tidal, Plex, Navidrome)
 
@@ -66,16 +83,6 @@ app.locals.activeListConnections = [];
 app.locals.activeItemOutputConnections = new Map<string, Response[]>();
 app.locals.history = [];
 app.locals.historySet = new Set<string>();
-
-app.all("/{*any}", function (_req, res, next) {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept",
-  );
-
-  next();
-});
 
 // Register routers
 

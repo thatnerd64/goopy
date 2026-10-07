@@ -45,4 +45,7 @@ services:
       - ARTIST_SINGLE_DOWNLOAD=
       - DOWNLOAD_BATCH_SIZE=
       - DOWNLOAD_BATCH_DELAY=
+      - EXPLICIT_PREFERENCE=
+      - CORS_ORIGIN=
+      - TRUST_PROXY=
       

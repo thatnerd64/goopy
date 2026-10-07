@@ -75,7 +75,7 @@ export default function HomeTabs() {
   }, [value, tabHashes]);
 
   return (
-    <Box sx={{ bgcolor: "background.paper" }}>
+    <Box sx={{ pb: 4 }}>
       <Portal container={document.getElementById("app-bar")}>
         <Container maxWidth="lg">
           <Tabs

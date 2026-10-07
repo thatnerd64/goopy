@@ -4,32 +4,28 @@
     <meta charset="utf-8" />
     <link rel="icon" href="/favicon/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="Web site created using create-react-app" />
-    
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0a0c10" />
+    <meta name="description" content="Self-hosted Tidal media downloader" />
+    <!-- Avoid a white flash before the app styles are loaded -->
+    <style>
+      html,
+      body {
+        background: #0a0c10;
+        color: #eef1f6;
+      }
+    </style>
+
     <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png">
-    <meta name="msapplication-TileColor" content="#da532c">
-    <meta name="theme-color" content="#ffffff">
+    <meta name="msapplication-TileColor" content="#0a0c10">
     <!--
       manifest.json provides metadata used when your web app is installed on a
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
     -->
     <link rel="manifest" href="/favicon/manifest.json">
     <title>Tidarr</title>
-    <!-- Umami -->
-    <script>
-      if (window.location.port != 3000 && window.location.hostname != "localhost") {
-        var u = document.createElement('script');
-        u.async = true;
-        u.defer = true;
-        u.src = 'https://um.cl-st.me/x.js';
-        u.setAttribute('data-website-id', 'bcb664ef-ca81-4f64-924f-bea3a909aa72');
-        document.head.appendChild(u);
-      }
-    </script>
-    <!-- End Umami Code -->
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

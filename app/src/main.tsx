@@ -1,7 +1,6 @@
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
-import { ThemeProvider } from "@emotion/react";
-import { createTheme, CssBaseline } from "@mui/material";
+import { CssBaseline, ThemeProvider } from "@mui/material";
 
 import MainLayout from "./components/MainLayout";
 import { FloatingPlayer } from "./components/Player/FloatingPlayer";
@@ -20,24 +19,9 @@ import { APIFetcherProvider } from "./provider/ApiFetcherProvider";
 import { AuthProvider } from "./provider/AuthProvider";
 import { ConfigProvider } from "./provider/ConfigProvider";
 import { PlayerProvider } from "./provider/PlayerProvider";
+import { darkTheme } from "./utils/theme";
 
 import "./index.css";
-
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-  },
-  typography: {
-    h1: {
-      fontSize: 32,
-      fontWeight: "bold",
-    },
-    h2: {
-      fontSize: 24,
-      fontWeight: "bold",
-    },
-  },
-});
 
 function DefaultLayout() {
   return (

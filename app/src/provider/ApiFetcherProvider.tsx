@@ -144,6 +144,13 @@ export function APIFetcherProvider({ children }: { children: ReactNode }) {
             return;
           }
 
+          // Validation errors (400) and rate limiting (429) carry a message
+          // meant for the user: hand it to the caller
+          if (response.status === 400 || response.status === 429) {
+            output = response.json().catch(() => undefined) as T;
+            return;
+          }
+
           if (response.status >= 500) {
             setApiError(response);
             return;

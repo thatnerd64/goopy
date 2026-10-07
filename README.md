@@ -24,10 +24,12 @@ Tidarr is a Docker image that provides a web interface to download up to **24-bi
   - [PUID/PGID/UMASK](#puid-pgid-umask)
   - [Listening port](#listening-port)
   - [Password protection](#password-protection)
+  - [Security hardening](#security-hardening)
   - [OpenID Connect (OIDC) Authentication](#openid-connect-oidc-authentication)
   - [Lock quality selector](#lock-quality-selector)
   - [Playlist options](#playlist-options)
   - [Discography options](#discography-download-mode)
+  - [Explicit / clean editions](#explicit--clean-editions)
   - [Rate-limited download mode](#rate-limited-download-mode)
   - [Sync playlists and mixes](#sync-playlists-and-mixes)
   - [Custom CSS](#custom-css)
@@ -212,6 +214,27 @@ environment:
   - ADMIN_PASSWORD=<string> # if not set, no password are required to access
 ```
 
+### Security hardening
+
+- **Login rate limit**: after 10 wrong passwords in 15 minutes an IP address is blocked for the rest of the window (HTTP 429). Behind a reverse proxy, set `TRUST_PROXY` so Tidarr sees the real client IP instead of the proxy's (otherwise all your users share one counter):
+
+```yaml
+environment:
+  - ...
+  - TRUST_PROXY=1            # number of proxies in front of Tidarr; also accepts "true", "loopback", a CIDR...
+```
+
+- **CORS is disabled by default.** The web interface is served by Tidarr itself and does not need it. If another website must call the API from a browser, allow it explicitly:
+
+```yaml
+environment:
+  - ...
+  - CORS_ORIGIN=https://dashboard.example.com,https://other.example.com   # or * for any origin
+```
+
+- **Set `JWT_SECRET`** to keep users logged in across restarts (a random one is generated at each start otherwise). Changing `ADMIN_PASSWORD` or `JWT_SECRET` logs everyone out.
+- Item ids are restricted to letters, digits, `-` and `_`; notifications (Gotify, ntfy, Pushover webhook, Apprise) are sent natively over HTTP instead of through shell commands; the in-app audio player needs a login to get a stream URL.
+
 ### OpenID Connect (OIDC) Authentication
 
 Tidarr supports OIDC authentication for integration with identity providers like Keycloak, PocketID, Authentik, etc.
@@ -287,6 +310,35 @@ environment:
 
 > [!NOTE]
 > When `ARTIST_SINGLE_DOWNLOAD=true`, the artist is passed directly to tiddl as a single download job. This is faster but provides less granular error handling — if one album fails, the entire job may be affected.
+
+### Explicit / clean editions
+
+Tidal publishes the clean ("edited") and the explicit edition of many albums as **two separate albums** with the same artist and title. With the default folder template both end up in the same folder, so clean and explicit tracks get mixed.
+
+When Tidarr queues albums in bulk (artist discography, favorite albums, `PLAYLIST_ALBUMS`), it keeps **one edition per album**. Choose which one with `EXPLICIT_PREFERENCE`:
+
+```yaml
+environment:
+  - ...
+  - EXPLICIT_PREFERENCE=explicit   # default: explicit edition if it exists, else the clean one
+  # - EXPLICIT_PREFERENCE=clean    # clean edition if it exists, else the explicit one
+  # - EXPLICIT_PREFERENCE=both     # keep every edition (see below)
+```
+
+- Editions are matched on artist + title, ignoring markers such as `(Explicit)`, `[Clean Version]`, `(Edited)`. "Deluxe", "Remastered", etc. are different releases and are kept.
+- An album that only exists in one edition is always downloaded.
+- An edition that is already in the queue (for example one you queued by hand) wins: the other edition is not added on top of it.
+- Albums you download one by one from the interface are never filtered: you chose that edition.
+
+To really keep both editions, use `EXPLICIT_PREFERENCE=both` and tell tiddl to separate them in your `config.toml`:
+
+```toml
+[templates]
+default = "{album.artist}/{album.date:%Y} - {album.title} {album.explicit:long}/{item.number:02d}. {item.title_version}"
+```
+
+> [!NOTE]
+> With `ARTIST_SINGLE_DOWNLOAD=true` the whole artist is handed to tiddl, which downloads every edition: `EXPLICIT_PREFERENCE` cannot apply (a warning is logged).
 
 ### Rate-limited download mode
 

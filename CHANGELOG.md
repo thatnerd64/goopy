@@ -4,6 +4,53 @@ Tidarr notable changes.
 
 [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) format.
 
+## 📦 Unreleased
+
+### 🚀 Added
+
+- [API] New `EXPLICIT_PREFERENCE` env var (`explicit` | `clean` | `both`, default `explicit`). Tidal lists the clean and explicit editions of an album as two separate albums: Tidarr now keeps **one edition per album** when it expands an artist discography, favorite albums, or playlist/mix albums (`PLAYLIST_ALBUMS`), instead of mixing clean and explicit tracks in the same folder
+- [API] Albums already in the queue (e.g. queued manually) are checked too: the other edition of the same album is no longer added on top of it
+- [API] Queue items now carry the Tidal `explicit` flag
+- [API] First unit tests (vitest) + `pnpm test`, run in CI
+
+### 🎨 Interface
+
+- [Front] **Complete visual redesign**: new design system (dark ink palette, teal → violet accent, Inter/system type scale, 12px rounded surfaces), glass sticky header with a pill search field, segmented quality control and a responsive 3-row layout on phones
+- [Front] Press `/` anywhere to jump to the search field
+- [Front] Rebuilt album / playlist / mix cards: a compact list layout and a cover grid whose details appear on hover (always visible on touch devices); new album / artist / playlist / track page headers with a blurred cover backdrop
+- [Front] Queue: color-coded rows per status, a real progress bar for the active download, type / quality chips, and an `E` marker on the explicit edition that was queued; artist shown under the title on small screens
+- [Front] New login screen; footer no longer sits in a fixed bar over the content; consistent buttons, tabs, chips, dialogs and tooltips (all from one theme)
+- [Front] Invalid `config.toml` / custom CSS saves and rate-limited logins now show the server's message instead of failing silently
+- [Front] `prefers-reduced-motion` is respected
+- [Privacy] The analytics script that was loaded from the upstream author's server on every non-localhost deployment is removed
+
+### 🔒 Security
+
+- [API] **Shell injection fixed**: Gotify / ntfy / Pushover webhook / Apprise notifications were built as `curl` shell commands with the album title and artist name inside, so a title like `$(command)` or a `'` could run commands. They are now sent with native `fetch` (timeout, real HTTP error reporting, secrets no longer logged)
+- [API] **Shell injection / arbitrary deletion fixed** in the processing folder jobs (`rm -rf`, `cp`, `ls`, `find`, `chown`, `chmod`): they no longer go through a shell. Queue item ids are restricted to `[A-Za-z0-9_-]` (API, sync list, Lidarr, stored queue) and resolved paths are checked to stay inside the processing folder
+- [API] The login JWT no longer contains the plaintext admin password (it carries a keyed fingerprint instead). **Existing sessions are logged out once** after upgrading
+- [API] `ADMIN_PASSWORD`, API key and signature checks are constant-time; JWT algorithm is pinned to HS256
+- [API] Login rate limit (10 failures / 15 min / IP, HTTP 429) and new `TRUST_PROXY` env var
+- [API] `/api/stream/sign/:id` now requires a login; stream URLs are no longer signed with the hardcoded `"supersecret"` fallback (the secret was also read before `.env` was loaded); track ids must be numeric; a non-numeric `exp` no longer bypasses the expiry check
+- [API] CORS is **disabled by default** (it was open to every origin). Use the new `CORS_ORIGIN` env var if a browser app on another origin needs the API. Added `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Cache-Control: no-store` on `/api`
+- [API] Lidarr download endpoints validate the album id and quality
+
+### 🐛 Fixed
+
+- [API] Saving `config.toml` was not awaited (a failure was reported as success and crashed the process); invalid TOML is now rejected with the parse error instead of being written
+- [API] M3U path rewriting no longer breaks on library paths containing regex characters (`(`, `+`, `[`...)
+- [API] The stream endpoint fell back to a wrongly-shaped tiddl config
+
+### 🖍 Changes
+
+- [API] Discography: the old title-only de-duplication (which kept whichever edition Tidal listed first, and merged same-titled albums of different artists) is replaced by the artist + edition-aware selection above
+- [API] Playlist albums are queued with string IDs like every other item
+- [Doc] Default `config.toml` documents `{album.explicit}` to keep editions in separate folders with `EXPLICIT_PREFERENCE=both`
+
+### ⚠️ Notes
+
+- With `ARTIST_SINGLE_DOWNLOAD=true` the artist is handed to tiddl as a single job: every edition is downloaded and `EXPLICIT_PREFERENCE` cannot apply (a warning is logged)
+
 ## 📦 1.2.7
 
 ### 🚀 Added

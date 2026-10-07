@@ -78,10 +78,11 @@ const PlayBack = ({ track, audioUrl, audioRef }: PlayBackProps) => {
       sx={{
         display: "flex",
         flexDirection: "column",
-        bgcolor: "#282828",
-        borderRadius: 2,
+        bgcolor: "#151a23",
+        border: "1px solid rgba(255,255,255,.12)",
+        borderRadius: 3,
         overflow: "hidden",
-        boxShadow: "0 0 15px 0px black",
+        boxShadow: "0 24px 48px -16px rgba(0,0,0,.9)",
       }}
     >
       <Box
@@ -138,7 +139,7 @@ const PlayBack = ({ track, audioUrl, audioRef }: PlayBackProps) => {
       </Box>
       <Box
         sx={{
-          bgcolor: "#191919",
+          bgcolor: "#0f131a",
           flex: 1,
           display: "flex",
           alignItems: "center",

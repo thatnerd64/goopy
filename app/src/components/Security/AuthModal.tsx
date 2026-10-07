@@ -1,37 +1,29 @@
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Key } from "@mui/icons-material";
-import AlbumIcon from "@mui/icons-material/Album";
-import { Alert, Box, Button, Input, Modal, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  Modal,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { useAuth } from "src/provider/AuthProvider";
 import { ApiReturnType } from "src/types";
+import { surface } from "src/utils/theme";
 
-const style = {
-  position: "absolute",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  bgcolor: "background.paper",
-  border: "2px solid #000",
-  boxShadow: 24,
-  maxWidth: "21rem",
-  width: "95%",
-};
-
-const styleTitle = {
-  borderBottom: "2px solid #000",
-  px: 4,
-  py: 2,
-};
-
-const styleContent = {
-  p: 4,
-};
+import { Logo } from "../Layout/Logo";
 
 export const AuthModal = () => {
   const refInput = useRef<HTMLInputElement>(null);
   const [authError, setAuthError] = useState<boolean | string>(false);
   const [isLoading, setIsLoading] = useState(false);
   const { login, loginWithOIDC, authType } = useAuth();
+
+  // This screen has a single purpose: put the cursor in the password field
+  useEffect(() => {
+    refInput.current?.focus();
+  }, [authType]);
 
   async function submitForm(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -52,35 +44,80 @@ export const AuthModal = () => {
       open
       aria-labelledby="modal-modal-title"
       aria-describedby="modal-modal-description"
+      slotProps={{
+        backdrop: {
+          sx: {
+            background: `radial-gradient(900px 480px at 15% 0%, rgba(61,217,195,.16), transparent 60%), radial-gradient(800px 460px at 90% 100%, rgba(167,139,250,.16), transparent 60%), ${surface.background}`,
+            backdropFilter: "none",
+          },
+        },
+      }}
     >
-      <Box sx={style}>
-        <Box sx={styleTitle}>
+      <Box
+        sx={{
+          bgcolor: "background.paper",
+          border: `1px solid ${surface.borderStrong}`,
+          borderRadius: 5,
+          boxShadow: "0 40px 80px -30px rgba(0,0,0,.9)",
+          left: "50%",
+          maxWidth: "23rem",
+          outline: "none",
+          overflow: "hidden",
+          position: "absolute",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "92%",
+        }}
+      >
+        <Box
+          sx={{
+            alignItems: "center",
+            display: "flex",
+            flexDirection: "column",
+            gap: 1.5,
+            pb: 2,
+            pt: 4,
+            px: 4,
+          }}
+        >
+          <Logo size={52} />
           <Typography
-            variant="h6"
-            component="h6"
-            sx={{
-              alignItems: "center",
-              display: "flex",
-              justifyContent: "center",
-            }}
+            id="modal-modal-title"
+            variant="h3"
+            component="h2"
+            sx={{ textAlign: "center" }}
           >
-            <AlbumIcon />
-            &nbsp;&nbsp;
-            <span>{"Tidarr authentication"}</span>
+            Tidarr authentication
           </Typography>
         </Box>
-        {authError && <Alert severity="error">{authError}</Alert>}
-        <Box sx={styleContent}>
+        {authError && (
+          <Alert severity="error" sx={{ mx: 4, mb: 1 }} role="alert">
+            {authError}
+          </Alert>
+        )}
+        <Box id="modal-modal-description" sx={{ pb: 4, pt: 1.5, px: 4 }}>
           {authType === "password" && (
-            <form onSubmit={(e) => submitForm(e)} style={{ display: "flex" }}>
-              <Input
-                ref={refInput}
+            <form
+              onSubmit={(e) => submitForm(e)}
+              style={{ display: "flex", flexDirection: "column", gap: 16 }}
+            >
+              <TextField
+                inputRef={refInput}
                 id="password"
                 name="password"
                 type="password"
                 placeholder="Password..."
+                autoComplete="current-password"
+                fullWidth
+                slotProps={{ htmlInput: { "aria-label": "Password" } }}
               />
-              <Button type="submit" disabled={isLoading}>
+              <Button
+                type="submit"
+                variant="contained"
+                size="large"
+                disabled={isLoading}
+                fullWidth
+              >
                 {isLoading ? "Loading..." : "Submit"}
               </Button>
             </form>
@@ -89,6 +126,7 @@ export const AuthModal = () => {
             <Button
               endIcon={<Key />}
               variant="contained"
+              size="large"
               onClick={loginWithOIDC}
               fullWidth
             >

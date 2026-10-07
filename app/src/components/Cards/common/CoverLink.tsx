@@ -38,7 +38,7 @@ export default function CoverLink({
 }
 
 const Overlay = styled("div")`
-  background-color: rgba(18, 18, 18, 0.7);
+  background-color: rgba(10, 12, 16, 0.62);
   color: white;
   display: flex;
   justify-content: center;

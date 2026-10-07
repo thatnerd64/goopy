@@ -7,7 +7,7 @@ const Placeholder = () => {
       style={{
         alignItems: "center",
         background:
-          "linear-gradient(180deg, rgba(20,20,20,1) 0%, rgba(50,50,50,1) 100%)",
+          "linear-gradient(135deg, rgba(30,36,48,1) 0%, rgba(18,22,30,1) 100%)",
         display: "flex",
         height: 0,
         justifyContent: "center",

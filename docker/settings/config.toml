@@ -26,6 +26,12 @@ debug = false
 # then default template will be used.
 default = "{album.artist}/{album.date:%Y} - {album.title}/{item.number:02d}. {item.title_version}"
 
+# Clean and explicit editions of an album share the same artist, year and title:
+# with the default template they end up in the same folder.
+# Tidarr picks one edition per album (see the EXPLICIT_PREFERENCE variable).
+# If you set EXPLICIT_PREFERENCE=both, keep editions apart with {album.explicit}:
+# default = "{album.artist}/{album.date:%Y} - {album.title} {album.explicit:long}/{item.number:02d}. {item.title_version}"
+
 # track = "track/{album.artist}/{album.date:%Y} - {album.title}/{item.artist} - {item.title_version}"
 # album = "album/{album.artist}/{album.date:%Y} - {album.title}/{item.number:02d}. {item.title_version}"
 # playlist = "playlist/{album.artist}/{album.date:%Y} - {album.title}/{item.number:02d}. {item.title_version}"

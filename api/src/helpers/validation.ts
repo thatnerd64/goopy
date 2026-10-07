@@ -1,5 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 
+import { isSafeId } from "./safe-id";
+
 /**
  * Validation helper for request body fields
  */
@@ -43,6 +45,35 @@ export function validateRequestBody(
   };
 }
 
+const VALID_TYPES = [
+  "album",
+  "track",
+  "video",
+  "playlist",
+  "mix",
+  "artist",
+  "artist_videos",
+  "favorite_albums",
+  "favorite_tracks",
+  "favorite_playlists",
+  "favorite_videos",
+  "favorite_artists",
+];
+
+/**
+ * The url is handed to the tiddl CLI as an argument: it must not be able to
+ * pass for an option (leading "-") nor contain whitespace/control characters.
+ */
+export function isSafeUrl(url: unknown): url is string {
+  return (
+    typeof url === "string" &&
+    url.length <= 2048 &&
+    !url.startsWith("-") &&
+    // oxlint-disable-next-line no-control-regex
+    !/[\s\u0000-\u001f\u007f]/.test(url)
+  );
+}
+
 /**
  * Validate item object structure for downloads
  */
@@ -58,11 +89,8 @@ function validateItem(item: unknown): item is {
 
   const obj = item as Record<string, unknown>;
 
-  // id is required (non-empty string or number)
-  const idIsValidString =
-    typeof obj.id === "string" && obj.id.trim().length > 0;
-  const idIsValidNumber = typeof obj.id === "number" && !isNaN(obj.id);
-  if (!idIsValidString && !idIsValidNumber) {
+  // id is required and ends up in file paths: letters, digits, "-" and "_" only
+  if (!isSafeId(obj.id)) {
     return false;
   }
 
@@ -71,32 +99,12 @@ function validateItem(item: unknown): item is {
     return false;
   }
 
-  // url is optional but must be string if present
-  if (obj.url !== undefined && typeof obj.url !== "string") {
+  // url is optional but must be a safe string if present
+  if (obj.url !== undefined && !isSafeUrl(obj.url)) {
     return false;
   }
 
-  // Validate type values
-  const validTypes = [
-    "album",
-    "track",
-    "video",
-    "playlist",
-    "mix",
-    "artist",
-    "artist_videos",
-    "favorite_albums",
-    "favorite_tracks",
-    "favorite_playlists",
-    "favorite_videos",
-    "favorite_artists",
-  ];
-
-  if (!validTypes.includes(obj.type)) {
-    return false;
-  }
-
-  return true;
+  return VALID_TYPES.includes(obj.type);
 }
 
 /**
@@ -112,7 +120,7 @@ export function validateItemMiddleware(
   if (!validateItem(item)) {
     res.status(400).json({
       error:
-        "Invalid item structure. Required: { id: string|number, type: string, status: string, url?: string }",
+        "Invalid item structure. Required: { id: string|number (letters, digits, - and _ only), type: string, status: string, url?: string }",
     });
     return;
   }
@@ -147,6 +155,34 @@ export function validateIdMiddleware(
     res.status(400).json({
       error:
         "Invalid or missing 'id' field. Must be a non-empty string or number.",
+    });
+    return;
+  }
+
+  next();
+}
+
+/**
+ * Middleware to validate a sync list item (it is queued later on by the cron job)
+ */
+export function validateSyncItemMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const { item } = req.body;
+  const valid =
+    !!item &&
+    typeof item === "object" &&
+    isSafeId(item.id) &&
+    typeof item.title === "string" &&
+    VALID_TYPES.includes(item.type) &&
+    (item.url === undefined || isSafeUrl(item.url));
+
+  if (!valid) {
+    res.status(400).json({
+      error:
+        "Invalid sync item. Required: { id (letters, digits, - and _ only), title: string, type: string, url?: string }",
     });
     return;
   }

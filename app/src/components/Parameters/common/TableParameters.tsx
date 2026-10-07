@@ -18,12 +18,8 @@ export default function TableParameters({
       <Table sx={{ minWidth: 650 }} aria-label="simple table" size="small">
         <TableHead>
           <TableRow>
-            <TableCell width="30%">
-              <strong>Variable</strong>
-            </TableCell>
-            <TableCell>
-              <strong>Value</strong>
-            </TableCell>
+            <TableCell width="30%">Variable</TableCell>
+            <TableCell>Value</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -32,8 +28,15 @@ export default function TableParameters({
               key={row[0]}
               sx={{ "&:last-child td, &:last-child th": { border: 0 } }}
             >
-              <TableCell>{row?.[0]}</TableCell>
-              <TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{row?.[0]}</TableCell>
+              <TableCell
+                sx={{
+                  color: "text.secondary",
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                  fontSize: 13,
+                  overflowWrap: "anywhere",
+                }}
+              >
                 {typeof row?.[1] === "object"
                   ? JSON.stringify(row[1])
                   : row?.[1]?.toString()}

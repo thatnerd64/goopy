@@ -27,7 +27,7 @@ export default function Home() {
   const ModuleFilters = ["ALBUM_HEADER"];
 
   return (
-    <Box sx={{ bgcolor: "background.paper" }}>
+    <Box sx={{ pb: 4 }}>
       <Container maxWidth="lg">
         {data && (
           <ModuleNavigation data={data} excludedModules={ModuleFilters} />

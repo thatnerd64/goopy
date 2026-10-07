@@ -5,6 +5,7 @@ import { handleRouteError } from "../helpers/error-handler";
 import {
   validateIdMiddleware,
   validateRequestBody,
+  validateSyncItemMiddleware,
 } from "../helpers/validation";
 import {
   addItemToSyncList,
@@ -44,6 +45,7 @@ router.post(
   "/sync/save",
   ensureAccessIsGranted,
   validateRequestBody(["item"]),
+  validateSyncItemMiddleware,
   async (req: Request, res: Response) => {
     try {
       await addItemToSyncList(req.body.item);

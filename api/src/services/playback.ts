@@ -16,7 +16,7 @@ export async function getPlaybackInfo(
   token: string,
   country: string,
 ): Promise<string[] | null> {
-  const url = `https://api.tidal.com/v1/tracks/${id}/playbackinfo?countryCode=${country}&audioquality=${quality}&playbackmode=STREAM&assetpresentation=FULL`;
+  const url = `https://api.tidal.com/v1/tracks/${encodeURIComponent(id)}/playbackinfo?countryCode=${encodeURIComponent(country)}&audioquality=${encodeURIComponent(quality)}&playbackmode=STREAM&assetpresentation=FULL`;
 
   try {
     const res = await fetch(url, {

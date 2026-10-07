@@ -1,5 +1,4 @@
-import { Chip, useTheme } from "@mui/material";
-import { customColors } from "src/utils/theme";
+import { alpha, Chip, useTheme } from "@mui/material";
 
 export function ChipQuality({ quality }: { quality: string }) {
   const theme = useTheme();
@@ -9,17 +8,11 @@ export function ChipQuality({ quality }: { quality: string }) {
   return (
     <Chip
       label={quality}
-      color="primary"
       size="small"
       sx={{
-        color:
-          quality === "lossless"
-            ? theme.palette.common.white
-            : theme.palette.common.black,
-        backgroundColor:
-          quality === "lossless"
-            ? customColors.gold
-            : theme.palette.primary.main,
+        backgroundColor: alpha(theme.palette.primary.main, 0.16),
+        color: theme.palette.primary.light,
+        textTransform: "capitalize",
       }}
     />
   );

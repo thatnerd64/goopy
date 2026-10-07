@@ -41,10 +41,13 @@ export const DialogHandler = ({
     >
       <DialogTitle
         id="alert-dialog-title"
-        style={{
-          display: "flex",
+        sx={{
           alignItems: "center",
-          borderColor: "white",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          display: "flex",
+          fontWeight: 700,
+          pb: 1.5,
         }}
       >
         {icon && (
@@ -59,7 +62,7 @@ export const DialogHandler = ({
         )}
         {title}
       </DialogTitle>
-      <DialogContent sx={{ pb: 0 }}>
+      <DialogContent sx={{ pb: 0, pt: "20px !important" }}>
         <DialogContentText id="alert-dialog-description" component="div">
           {children}
         </DialogContentText>

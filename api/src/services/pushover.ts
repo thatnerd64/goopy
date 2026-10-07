@@ -1,11 +1,10 @@
-import { exec } from "child_process";
-import { promisify } from "util";
-
-import { curl_escape_double_quote } from "../helpers/curl_escape";
+import {
+  describeEndpoint,
+  notificationText,
+  sendNotification,
+} from "../helpers/notify-http";
 import { logs } from "../processing/utils/logs";
 import { ProcessingItemType } from "../types";
-
-const execAsync = promisify(exec);
 
 export async function hookPushOver(item: ProcessingItemType) {
   if (process.env.PUSH_OVER_URL) {
@@ -15,19 +14,17 @@ export async function hookPushOver(item: ProcessingItemType) {
 
     try {
       const url = process.env.PUSH_OVER_URL;
-      const pushTitle = curl_escape_double_quote(`New ${item.type} added`);
-      const message = curl_escape_double_quote(
-        `${item?.title} ${item?.artist ? "-" : ""} ${item?.artist || ""} added to music library`,
-      );
+      const { title, message } = notificationText(item);
       const body = JSON.stringify({
-        text: [pushTitle, message].join("\r\n"),
+        text: [title, message].join("\r\n"),
       });
 
-      const command = `curl  -i -X POST -H 'Content-Type: application/json' -d '${body}' ${url}`;
+      console.log(`🕖 [PUSHOVER WEBHOOK] URL: ${describeEndpoint(url)}`);
 
-      console.log(`🕖 [PUSHOVER WEBHOOK] Command : ${command}`);
-
-      await execAsync(command, { encoding: "utf-8" });
+      await sendNotification(url, {
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
 
       logs(item.id, `✅ [PUSHOVER WEBHOOK] Success output`);
     } catch (e: unknown) {

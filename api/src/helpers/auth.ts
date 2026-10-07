@@ -2,7 +2,13 @@ import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
 import { getOrCreateApiKey } from "../services/api-key";
-import { is_oidc_configured } from "../services/auth";
+import {
+  is_oidc_configured,
+  JWT_ALGORITHM,
+  passwordFingerprint,
+} from "../services/auth";
+
+import { safeEqual } from "./safe-compare";
 
 export function ensureAccessIsGranted(
   req: Request,
@@ -36,7 +42,7 @@ export function ensureAccessIsGranted(
 
   // If API key is provided (*arr apps), validate it
   if (providedApiKey) {
-    if (providedApiKey === configuredApiKey) {
+    if (safeEqual(providedApiKey, configuredApiKey)) {
       return next();
     } else {
       res.status(403).json({ error: true, message: "Invalid API key" });
@@ -49,25 +55,36 @@ export function ensureAccessIsGranted(
     return;
   }
 
-  jwt.verify(token, jwtSecret, (err, decoded) => {
-    if (err) {
-      res.status(403).json({ error: true, message: "JWT decode failed" });
-      return;
-    }
+  jwt.verify(
+    token,
+    jwtSecret,
+    { algorithms: [JWT_ALGORITHM] },
+    (err, decoded) => {
+      if (err) {
+        res.status(403).json({ error: true, message: "JWT decode failed" });
+        return;
+      }
 
-    const payload = decoded as jwt.JwtPayload;
+      const payload = decoded as jwt.JwtPayload;
 
-    // Validate based on auth type
-    if (envPassword && payload.tidarrPasswd !== envPassword) {
-      res.status(403).json({ error: true, message: "Wrong password" });
-      return;
-    }
+      // Validate based on auth type
+      if (
+        envPassword &&
+        !safeEqual(
+          payload.tidarrPwd,
+          passwordFingerprint(envPassword, jwtSecret),
+        )
+      ) {
+        res.status(403).json({ error: true, message: "Wrong password" });
+        return;
+      }
 
-    if (enableOidc && !payload.oidcSub) {
-      res.status(403).json({ error: true, message: "Invalid OIDC token" });
-      return;
-    }
+      if (enableOidc && !payload.oidcSub) {
+        res.status(403).json({ error: true, message: "Invalid OIDC token" });
+        return;
+      }
 
-    return next();
-  });
+      return next();
+    },
+  );
 }

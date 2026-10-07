@@ -42,7 +42,7 @@ export default function ProcessingTabs() {
   const { processingList } = useProcessingProvider();
 
   return (
-    <Box sx={{ bgcolor: "background.paper" }}>
+    <Box sx={{ pb: 4 }}>
       <Portal container={document.getElementById("app-bar")}>
         <Container maxWidth="md">
           <Tabs

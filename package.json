@@ -10,7 +10,8 @@
     "lint": "oxlint -c .oxlintrc.json .",
     "lint-fix": "oxlint -c .oxlintrc.json --fix .",
     "format": "oxfmt -c .oxfmtrc.json \"**/*.{js,jsx,ts,tsx,mjs,cjs,json,css}\"",
-    "format-check": "oxfmt -c .oxfmtrc.json --check \"**/*.{js,jsx,ts,tsx,mjs,cjs,json,css}\""
+    "format-check": "oxfmt -c .oxfmtrc.json --check \"**/*.{js,jsx,ts,tsx,mjs,cjs,json,css}\"",
+    "test": "pnpm --filter tidarr-api test"
   },
   "devDependencies": {
     "concurrently": "^10.0.5",
