@@ -2,6 +2,7 @@ import { Express } from "express";
 import cron from "node-cron";
 
 import { SYNC_DEFAULT_CRON } from "../../constants";
+import { isInFlight } from "../helpers/item-status";
 import { isSafeId } from "../helpers/safe-id";
 import { ProcessingItemType, SyncItemType } from "../types";
 
@@ -127,11 +128,8 @@ export const process_sync_list = async (app: Express) => {
       continue;
     }
 
-    if (
-      item &&
-      ["processing", "download", "queue_download"].includes(item?.status)
-    )
-      continue;
+    // Re-adding would kill the download or delete files waiting for post-processing
+    if (isInFlight(item)) continue;
 
     const itemToQueue: ProcessingItemType = {
       id: element.id,
