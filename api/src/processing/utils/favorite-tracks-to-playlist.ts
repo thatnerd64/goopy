@@ -7,6 +7,7 @@ import {
   fetchAllTidalPages,
   fetchTidalWithRefresh,
 } from "../../helpers/fetch-tidal";
+import { resolveInside } from "../../helpers/safe-id";
 import { ProcessingItemType, TiddlConfig } from "../../types";
 
 import { logs } from "./logs";
@@ -113,6 +114,20 @@ function findAudioFile(
 }
 
 /**
+ * The playlist title becomes a file name: no path separators, no control
+ * characters, and no leading dots (".." or a hidden file).
+ */
+export function safePlaylistTitle(title: unknown): string {
+  const cleaned = (typeof title === "string" ? title : "")
+    // oxlint-disable-next-line no-control-regex
+    .replace(/[/\\\u0000-\u001f\u007f]/g, "_")
+    .replace(/^[.\s]+/, "")
+    .trim()
+    .slice(0, 200);
+  return cleaned || "Favorite Tracks";
+}
+
+/**
  * Generates an M3U playlist for favorite_tracks, written directly to the library.
  * Fetches the full Tidal favorites list (newest first), resolves each track's path
  * via the tiddl template, and rewrites the M3U completely on every run.
@@ -146,7 +161,7 @@ export async function generateFavoriteTracksM3U(
     tiddlConfig?.m3u?.templates?.playlist ?? `Playlists/{playlist.title}`;
   const resolvedPlaylistPath = playlistTemplate.replace(
     /\{playlist\.title\}/g,
-    item.title || "Favorite Tracks",
+    safePlaylistTitle(item.title),
   );
 
   logs(item.id, `🕖 [FAV] Fetching favorite tracks from Tidal...`);
@@ -199,7 +214,11 @@ export async function generateFavoriteTracksM3U(
       return;
     }
 
-    const m3uFilePath = path.join(libraryPath, `${resolvedPlaylistPath}.m3u`);
+    // The title comes from the client: never write outside the library
+    const m3uFilePath = resolveInside(
+      libraryPath,
+      `${resolvedPlaylistPath}.m3u`,
+    );
     fs.mkdirSync(path.dirname(m3uFilePath), { recursive: true });
     fs.writeFileSync(
       m3uFilePath,

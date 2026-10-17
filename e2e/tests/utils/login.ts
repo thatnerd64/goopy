@@ -34,7 +34,7 @@ export async function oidcLogin(page: Page): Promise<string> {
   );
 
   // Simulate OIDC callback
-  await page.goto(`/?token=${tidarrToken}`);
+  await page.goto(`/#token=${tidarrToken}`);
   await page.waitForTimeout(1000);
 
   return tidarrToken;

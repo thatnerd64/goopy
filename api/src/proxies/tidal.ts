@@ -1,7 +1,7 @@
-import { Express, Request, Response } from "express";
+import express, { Express, Request, Response } from "express";
 
 import { TIDAL_API_URL } from "../../constants";
-import { ensureAccessIsGranted } from "../helpers/auth";
+import { ensureAdminAccess } from "../helpers/auth";
 import { refreshTokenOnce } from "../helpers/refresh-token";
 
 /**
@@ -10,7 +10,9 @@ import { refreshTokenOnce } from "../helpers/refresh-token";
 export function setupTidalProxy(app: Express): void {
   app.use(
     "/proxy/tidal",
-    ensureAccessIsGranted,
+    // Some Tidal endpoints take form bodies; only parsed here, not app-wide
+    express.urlencoded({ extended: false }),
+    ensureAdminAccess,
     async (req: Request, res: Response) => {
       const token = req.app.locals.tiddlConfig?.auth?.token;
 

@@ -1,6 +1,6 @@
 import { Request, Response, Router } from "express";
 
-import { ensureAccessIsGranted } from "../helpers/auth";
+import { ensureAccessIsGranted, ensureAdminAccess } from "../helpers/auth";
 import {
   handleRouteError,
   handleValidationError,
@@ -38,7 +38,7 @@ router.get(
  */
 router.post(
   "/tiddl/config",
-  ensureAccessIsGranted,
+  ensureAdminAccess,
   validateRequestBody(["toml"]),
   async (req: Request, res: Response<TiddlTomlSaveResponse>) => {
     try {

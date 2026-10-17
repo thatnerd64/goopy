@@ -2,7 +2,7 @@ import { readFileSync } from "fs";
 import toml from "toml";
 
 import { CONFIG_PATH } from "../../constants";
-import { TiddlConfig } from "../types";
+import { PublicTiddlConfig, TiddlConfig } from "../types";
 
 export function get_tiddl_config(): {
   config: TiddlConfig;
@@ -41,5 +41,27 @@ export function get_tiddl_config(): {
       auth: auth,
     } as TiddlConfig,
     errors,
+  };
+}
+
+/**
+ * The tiddl config as sent to the browser: the Tidal access and refresh tokens
+ * never leave the server (the web interface goes through /proxy/tidal), only
+ * the account fields the interface needs are kept.
+ */
+export function toPublicTiddlConfig(
+  config: TiddlConfig | undefined,
+): PublicTiddlConfig | undefined {
+  if (!config) return config;
+  const { auth, ...rest } = config;
+  return {
+    ...rest,
+    auth: auth
+      ? {
+          user_id: auth.user_id,
+          country_code: auth.country_code,
+          expires_at: auth.expires_at,
+        }
+      : undefined,
   };
 }

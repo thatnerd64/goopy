@@ -1,6 +1,27 @@
 import { SYNC_DEFAULT_CRON } from "../../constants";
 import { initializeFiles } from "../helpers/initialize-server";
 
+const MASK = "****";
+
+/** Secrets are sent to the browser as "set / not set" only. */
+function masked(value: string | undefined): string {
+  return value ? MASK : "";
+}
+
+/** Hides the credentials of a URL (user:password@host) sent to the browser. */
+export function withoutCredentials(value: string | undefined): string {
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    if (!url.username && !url.password) return value;
+    url.username = url.username ? MASK : "";
+    url.password = url.password ? MASK : "";
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
 export async function configureServer() {
   console.log(`---------------------`);
   console.log(`⚙️ LOAD TIDARR CONFIG`);
@@ -18,31 +39,33 @@ export async function configureServer() {
     parameters: {
       ENABLE_BEETS: process.env.ENABLE_BEETS || "",
       REPLAY_GAIN: process.env.REPLAY_GAIN || "",
-      PLEX_URL: process.env.PLEX_URL || "",
+      PLEX_URL: withoutCredentials(process.env.PLEX_URL),
       PLEX_PUBLIC_URL: process.env.PLEX_PUBLIC_URL || "",
       PLEX_LIBRARY: process.env.PLEX_LIBRARY || "",
-      PLEX_TOKEN: process.env.PLEX_TOKEN || "",
+      PLEX_TOKEN: masked(process.env.PLEX_TOKEN),
       PLEX_PATH: process.env.PLEX_PATH || "",
-      JELLYFIN_URL: process.env.JELLYFIN_URL || "",
+      JELLYFIN_URL: withoutCredentials(process.env.JELLYFIN_URL),
       JELLYFIN_PUBLIC_URL: process.env.JELLYFIN_PUBLIC_URL || "",
-      JELLYFIN_API_KEY: process.env.JELLYFIN_API_KEY || "",
-      NAVIDROME_URL: process.env.NAVIDROME_URL || "",
+      JELLYFIN_API_KEY: masked(process.env.JELLYFIN_API_KEY),
+      NAVIDROME_URL: withoutCredentials(process.env.NAVIDROME_URL),
       NAVIDROME_PUBLIC_URL: process.env.NAVIDROME_PUBLIC_URL || "",
       NAVIDROME_USER: process.env.NAVIDROME_USER || "",
-      NAVIDROME_PASSWORD: process.env.NAVIDROME_PASSWORD ? "****" : "",
-      GOTIFY_URL: process.env.GOTIFY_URL || "",
-      GOTIFY_TOKEN: process.env.GOTIFY_TOKEN || "",
-      NTFY_URL: process.env.NTFY_URL || "",
+      NAVIDROME_PASSWORD: masked(process.env.NAVIDROME_PASSWORD),
+      GOTIFY_URL: withoutCredentials(process.env.GOTIFY_URL),
+      GOTIFY_TOKEN: masked(process.env.GOTIFY_TOKEN),
+      NTFY_URL: withoutCredentials(process.env.NTFY_URL),
       NTFY_TOPIC: process.env.NTFY_TOPIC || "",
-      NTFY_TOKEN: process.env.NTFY_TOKEN || "",
+      NTFY_TOKEN: masked(process.env.NTFY_TOKEN),
       NTFY_PRIORITY: process.env.NTFY_PRIORITY || "",
       PUID: process.env.PUID || "",
       PGID: process.env.PGID || "",
       UMASK: process.env.UMASK || "",
       TIDARR_VERSION: process.env.VERSION || "",
-      APPRISE_API_ENDPOINT: process.env.APPRISE_API_ENDPOINT || "",
+      APPRISE_API_ENDPOINT: withoutCredentials(
+        process.env.APPRISE_API_ENDPOINT,
+      ),
       APPRISE_API_TAG: process.env.APPRISE_API_TAG || "",
-      PUSH_OVER_URL: process.env.PUSH_OVER_URL || "",
+      PUSH_OVER_URL: masked(process.env.PUSH_OVER_URL),
       LOCK_QUALITY: process.env.LOCK_QUALITY || "",
       SYNC_CRON_EXPRESSION:
         process.env.SYNC_CRON_EXPRESSION || SYNC_DEFAULT_CRON || "",

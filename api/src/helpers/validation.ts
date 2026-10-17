@@ -1,5 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 
+import { ContentType, ProcessingItemType, QualityType } from "../types";
+
 import { isSafeId } from "./safe-id";
 
 /**
@@ -44,6 +46,9 @@ export function validateRequestBody(
     next();
   };
 }
+
+const VALID_QUALITIES: QualityType[] = ["low", "normal", "high", "max"];
+const VALID_ATMOS_FILTERS = ["none", "only", "allow"];
 
 const VALID_TYPES = [
   "album",
@@ -104,7 +109,53 @@ function validateItem(item: unknown): item is {
     return false;
   }
 
+  // quality and atmosFilter are passed to tiddl: fixed values only
+  if (
+    obj.quality !== undefined &&
+    obj.quality !== null &&
+    obj.quality !== "" &&
+    !VALID_QUALITIES.includes(obj.quality as QualityType)
+  ) {
+    return false;
+  }
+  if (
+    obj.atmosFilter !== undefined &&
+    obj.atmosFilter !== null &&
+    obj.atmosFilter !== "" &&
+    !VALID_ATMOS_FILTERS.includes(obj.atmosFilter as string)
+  ) {
+    return false;
+  }
+
   return VALID_TYPES.includes(obj.type);
+}
+
+/**
+ * Builds the queued item from the fields a client may set. Everything else
+ * (playlistId, source, retryCount, errorStage, ...) is server state: a client
+ * must not be able to inject it, e.g. a playlistId the server would later
+ * DELETE on Tidal when the item is removed.
+ */
+export function toQueueItem(
+  raw: Record<string, unknown>,
+  defaultQuality: QualityType | undefined,
+): ProcessingItemType {
+  const text = (value: unknown) =>
+    typeof value === "string" ? value.slice(0, 500) : "";
+
+  return {
+    id: String(raw.id),
+    artist: text(raw.artist),
+    title: text(raw.title),
+    type: raw.type as ContentType,
+    status: "queue_download",
+    quality: (raw.quality as QualityType) || (defaultQuality as QualityType),
+    ...(raw.atmosFilter ? { atmosFilter: raw.atmosFilter as string } : {}),
+    ...(typeof raw.explicit === "boolean" ? { explicit: raw.explicit } : {}),
+    url: typeof raw.url === "string" ? raw.url : "",
+    loading: true,
+    error: false,
+  };
 }
 
 /**
@@ -120,7 +171,7 @@ export function validateItemMiddleware(
   if (!validateItem(item)) {
     res.status(400).json({
       error:
-        "Invalid item structure. Required: { id: string|number (letters, digits, - and _ only), type: string, status: string, url?: string }",
+        "Invalid item structure. Required: { id: string|number (letters, digits, - and _ only), type: string, status: string, url?: string, quality?: low|normal|high|max, atmosFilter?: none|only|allow }",
     });
     return;
   }

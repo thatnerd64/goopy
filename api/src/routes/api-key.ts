@@ -1,6 +1,6 @@
 import { Request, Response, Router } from "express";
 
-import { ensureAccessIsGranted } from "../helpers/auth";
+import { ensureAdminAccess } from "../helpers/auth";
 import { handleRouteError } from "../helpers/error-handler";
 import { getOrCreateApiKey, regenerateApiKey } from "../services/api-key";
 
@@ -10,21 +10,17 @@ const router = Router();
  * GET /api/api-key
  * Get the current API key for *arr integrations (Lidarr, Radarr, etc.)
  */
-router.get(
-  "/api-key",
-  ensureAccessIsGranted,
-  (_req: Request, res: Response) => {
-    try {
-      const apiKey = getOrCreateApiKey();
+router.get("/api-key", ensureAdminAccess, (_req: Request, res: Response) => {
+  try {
+    const apiKey = getOrCreateApiKey();
 
-      res.status(200).json({
-        apiKey,
-      });
-    } catch (error) {
-      handleRouteError(error, res, "get API key");
-    }
-  },
-);
+    res.status(200).json({
+      apiKey,
+    });
+  } catch (error) {
+    handleRouteError(error, res, "get API key");
+  }
+});
 
 /**
  * POST /api/api-key/regenerate
@@ -32,7 +28,7 @@ router.get(
  */
 router.post(
   "/api-key/regenerate",
-  ensureAccessIsGranted,
+  ensureAdminAccess,
   (_req: Request, res: Response) => {
     try {
       const newApiKey = regenerateApiKey();
