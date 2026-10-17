@@ -3,6 +3,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      update_snapshots:
+        description: "Regenerate the screenshot baselines and upload them as an artifact"
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.ref }}
@@ -34,7 +40,14 @@ jobs:
       - name: Run Playwright tests
         env:
           CI: true
-        run: pnpm --filter tidarr-testing playwright:test
+        run: pnpm --filter tidarr-testing ${{ inputs.update_snapshots && 'playwright:test-update-snapshots' || 'playwright:test' }}
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && inputs.update_snapshots }}
+        with:
+          name: playwright-snapshots
+          path: ./e2e/snapshots/
+          retention-days: 7
 
       - uses: actions/upload-artifact@v4
         if: failure()
