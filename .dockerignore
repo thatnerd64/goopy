@@ -1,5 +1,5 @@
 # Dependencies
-node_modules
+**/node_modules
 .pnpm-store
 .yarn
 .npm
@@ -9,7 +9,7 @@ node_modules
 .gitignore
 
 # Build outputs
-dist
+**/dist
 .cache
 download
 
@@ -33,6 +33,8 @@ README.md
 
 # Testing
 e2e
+**/test-results
+**/playwright-report
 coverage
 
 # Shared runtime data (mounted volume)

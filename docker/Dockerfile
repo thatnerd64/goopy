@@ -29,7 +29,7 @@ COPY docker/requirements.txt docker/requirements.txt
 RUN apk add --no-cache --virtual .build-deps \
         python3-dev \
         build-base && \
-    npm install -g pnpm@10 && \
+    npm install -g pnpm@10.28.2 && \
     python -m pip install --no-cache-dir -r docker/requirements.txt && \
     apk del .build-deps
 
@@ -75,7 +75,7 @@ ENV NODE_ENV="${NODE_ENV}"
 
 # Install build dependencies
 RUN apk add --no-cache git npm nodejs && \
-    npm install -g pnpm@10 && \
+    npm install -g pnpm@10.28.2 && \
     rm -rf /var/cache/apk/*
 
 COPY . .

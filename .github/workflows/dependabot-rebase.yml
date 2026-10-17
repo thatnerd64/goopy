@@ -22,15 +22,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get all open PRs created by Dependabot
-          prs=$(gh pr list --author "dependabot[bot]" --state open --json number,title --jq '.[] | .number')
+          # Only the open Dependabot PRs that are behind main or conflicting
+          prs=$(gh pr list --author "dependabot[bot]" --state open --json number,mergeStateStatus --jq '.[] | select(.mergeStateStatus == "BEHIND" or .mergeStateStatus == "DIRTY") | .number')
 
           if [ -z "$prs" ]; then
-            echo "No open Dependabot PRs found"
+            echo "No Dependabot PR needs a rebase"
             exit 0
           fi
 
-          echo "Found Dependabot PRs: $prs"
+          echo "Dependabot PRs to rebase: $prs"
 
           # Rebase each PR
           for pr in $prs; do
