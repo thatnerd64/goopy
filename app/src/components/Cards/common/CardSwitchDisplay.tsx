@@ -110,10 +110,10 @@ const MetaChips = ({
     <Stack direction="row" sx={{ flexWrap: "wrap", gap: 0.5 }}>
       {audioQuality && <ChipQuality quality={audioQuality.toLowerCase()} />}
       <ChipAtmos audioModes={audioModes} />
-      {numberOfTracks && (
+      {!!numberOfTracks && (
         <Chip label={`${numberOfTracks} tracks`} size="small" />
       )}
-      {duration && (
+      {!!duration && (
         <Chip
           label={`${Math.round(duration / 60)} min`}
           size="small"

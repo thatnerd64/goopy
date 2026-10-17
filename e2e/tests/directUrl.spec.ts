@@ -54,8 +54,8 @@ test("Tidarr direct url : Should display album result using Tidal album url", as
   ).toContainText("Nevermind");
 
   await expect(
-    page.locator(".MuiTypography-root > .MuiButtonBase-root").first(),
-  ).toHaveText("Nirvana");
+    page.getByRole("link", { name: "Nirvana", exact: true }).first(),
+  ).toHaveAttribute("href", /^\/artist\/\d+$/);
   await expect(
     page.getByRole("button", { name: "Get album" }).first(),
   ).toBeVisible();

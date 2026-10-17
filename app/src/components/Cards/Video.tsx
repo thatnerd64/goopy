@@ -90,18 +90,27 @@ export default function VideoCard({ video }: { video: VideoType }) {
               <Box component="span" sx={visuallyHidden}>
                 {" by "}
               </Box>
-              <Link
-                component={RouterLink}
-                to={`/artist/${video.artists[0].id}`}
-                underline="hover"
-                sx={{
-                  color: "text.secondary",
-                  fontSize: "0.85rem",
-                  "&:hover": { color: "text.primary" },
-                }}
-              >
-                {video.artists?.[0]?.name}
-              </Link>
+              {video.artists?.[0]?.id ? (
+                <Link
+                  component={RouterLink}
+                  to={`/artist/${video.artists[0].id}`}
+                  underline="hover"
+                  sx={{
+                    color: "text.secondary",
+                    fontSize: "0.85rem",
+                    "&:hover": { color: "text.primary" },
+                  }}
+                >
+                  {video.artists[0].name}
+                </Link>
+              ) : (
+                <Box
+                  component="span"
+                  sx={{ color: "text.secondary", fontSize: "0.85rem" }}
+                >
+                  {video.artists?.[0]?.name}
+                </Box>
+              )}
             </Box>
           </Box>
 

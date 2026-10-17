@@ -57,7 +57,9 @@ export default function TrackHeader({ track }: { track: TrackType }) {
               color="inherit"
               style={{ padding: "0 0.15rem" }}
               onClick={() => {
-                navigate(`/artist/${track.artists[0].id}`);
+                if (track.artists?.[0]?.id) {
+                  navigate(`/artist/${track.artists[0].id}`);
+                }
               }}
             >
               <strong>{track.artists?.[0]?.name}</strong>

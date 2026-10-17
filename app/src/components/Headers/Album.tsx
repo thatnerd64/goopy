@@ -39,14 +39,18 @@ export default function AlbumHeader({ album }: { album: AlbumType }) {
               "/",
             )}/750x750.jpg`}
           />
-          <Link
-            component={RouterLink}
-            to={`/artist/${album.artists[0].id}`}
-            underline="hover"
-            sx={{ color: "text.primary", fontWeight: 600 }}
-          >
-            {album.artists?.[0]?.name}
-          </Link>
+          {album.artists?.[0]?.id ? (
+            <Link
+              component={RouterLink}
+              to={`/artist/${album.artists[0].id}`}
+              underline="hover"
+              sx={{ color: "text.primary", fontWeight: 600 }}
+            >
+              {album.artists[0].name}
+            </Link>
+          ) : (
+            <strong>{album.artists?.[0]?.name}</strong>
+          )}
         </Stack>
       }
       afterTitle={

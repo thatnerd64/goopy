@@ -16,7 +16,7 @@ export default function AlbumCard({ album }: { album: AlbumType }) {
       numberOfTracks={album.numberOfTracks}
       duration={album.duration}
       releaseDate={album.releaseDate}
-      artist={album.artists[0]}
+      artist={album.artists?.[0]}
       explicit={album.explicit}
       isAI={album.ai}
       buttons={

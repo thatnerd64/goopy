@@ -171,6 +171,10 @@ function TitleLink({ track }: { track: TrackType }) {
 }
 
 function ArtistLink({ track }: { track: TrackType }) {
+  if (!track.artists?.[0]?.id) {
+    return <span>{track.artists?.[0]?.name}</span>;
+  }
+
   return (
     <MuiLink
       component={Link}

@@ -2,6 +2,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import MainLayout from "./components/MainLayout";
 import { FloatingPlayer } from "./components/Player/FloatingPlayer";
 import PrivateRoute, { ROUTE_LOGIN } from "./components/Security/PrivateRoute";
@@ -38,32 +39,34 @@ const root = ReactDOM.createRoot(
 root.render(
   <ThemeProvider theme={darkTheme}>
     <CssBaseline />
-    <BrowserRouter>
-      <APIFetcherProvider>
-        <ConfigProvider>
-          <AuthProvider>
-            <PlayerProvider>
-              <FloatingPlayer />
-              <Routes>
-                <Route path={ROUTE_LOGIN} element={<Login />} />
-                <Route element={<PrivateRoute />}>
-                  <Route element={<DefaultLayout />}>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/search/:keywords" element={<Search />} />
-                    <Route path="/artist/:id" element={<PageArtist />} />
-                    <Route path="/mix/:id" element={<PageMix />} />
-                    <Route path="/playlist/:id" element={<PagePlaylist />} />
-                    <Route path="/album/:id" element={<PageAlbum />} />
-                    <Route path="/track/:id" element={<PageTrack />} />
-                    <Route path="/processing" element={<PageProcessing />} />
-                    <Route path="/parameters" element={<Parameters />} />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <APIFetcherProvider>
+          <ConfigProvider>
+            <AuthProvider>
+              <PlayerProvider>
+                <FloatingPlayer />
+                <Routes>
+                  <Route path={ROUTE_LOGIN} element={<Login />} />
+                  <Route element={<PrivateRoute />}>
+                    <Route element={<DefaultLayout />}>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/search/:keywords" element={<Search />} />
+                      <Route path="/artist/:id" element={<PageArtist />} />
+                      <Route path="/mix/:id" element={<PageMix />} />
+                      <Route path="/playlist/:id" element={<PagePlaylist />} />
+                      <Route path="/album/:id" element={<PageAlbum />} />
+                      <Route path="/track/:id" element={<PageTrack />} />
+                      <Route path="/processing" element={<PageProcessing />} />
+                      <Route path="/parameters" element={<Parameters />} />
+                    </Route>
                   </Route>
-                </Route>
-              </Routes>
-            </PlayerProvider>
-          </AuthProvider>
-        </ConfigProvider>
-      </APIFetcherProvider>
-    </BrowserRouter>
+                </Routes>
+              </PlayerProvider>
+            </AuthProvider>
+          </ConfigProvider>
+        </APIFetcherProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </ThemeProvider>,
 );
