@@ -152,6 +152,9 @@ export function toQueueItem(
     quality: (raw.quality as QualityType) || (defaultQuality as QualityType),
     ...(raw.atmosFilter ? { atmosFilter: raw.atmosFilter as string } : {}),
     ...(typeof raw.explicit === "boolean" ? { explicit: raw.explicit } : {}),
+    ...(raw.source === "lidarr" || raw.source === "tidarr"
+      ? { source: raw.source }
+      : {}),
     url: typeof raw.url === "string" ? raw.url : "",
     loading: true,
     error: false,

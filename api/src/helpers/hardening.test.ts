@@ -130,10 +130,17 @@ describe("queued item from /api/save", () => {
       quality: "high",
       atmosFilter: "none",
       explicit: true,
+      source: "lidarr",
       url: "https://tidal.com/album/123",
       loading: true,
       error: false,
     });
+  });
+
+  it("drops an unknown source", () => {
+    expect(
+      toQueueItem({ id: "1", type: "track", source: "evil" }, "max"),
+    ).not.toHaveProperty("source");
   });
 
   it("falls back to the server quality", () => {
