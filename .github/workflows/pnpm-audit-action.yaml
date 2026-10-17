@@ -24,5 +24,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # Single root pnpm-lock.yaml covers all workspaces (api, app, e2e)
+      # GHSA-vfj7-8cjw-p6xm (braces DoS) has no patched release and is only
+      # reached through ts-prune, a dev-only dead-code finder
       - name: Run audit
-        run: npx --yes audit-ci@^7 --moderate --package-manager pnpm
+        run: npx --yes audit-ci@^7 --moderate --package-manager pnpm --allowlist GHSA-vfj7-8cjw-p6xm
