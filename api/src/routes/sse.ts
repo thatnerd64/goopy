@@ -5,6 +5,22 @@ import { sanitizeProcessingData } from "../processing/core/processing-manager";
 
 const router = Router();
 
+// Reverse proxies close idle connections (often after 60 s): an SSE comment
+// line keeps the stream open without reaching the client's handlers
+const HEARTBEAT_INTERVAL_MS = 25_000;
+
+function startHeartbeat(req: Request, res: Response) {
+  const timer = setInterval(() => {
+    try {
+      res.write(": heartbeat\n\n");
+    } catch {
+      clearInterval(timer);
+    }
+  }, HEARTBEAT_INTERVAL_MS);
+  timer.unref?.();
+  req.on("close", () => clearInterval(timer));
+}
+
 /**
  * GET /api/stream-processing
  * Server-Sent Events endpoint for processing queue updates
@@ -17,6 +33,8 @@ router.get(
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
+
+    startHeartbeat(req, res);
 
     // Add the new connection to the list
     req.app.locals.activeListConnections.push(res);
@@ -57,6 +75,8 @@ router.get(
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
+
+    startHeartbeat(req, res);
 
     // Get or create the connections array for this item
     const connections: Map<string, Response[]> =
