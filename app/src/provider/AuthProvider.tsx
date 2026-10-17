@@ -100,19 +100,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check for token in URL fragment (OIDC callback): a fragment is never sent
   // to the server, so the token stays out of access logs
   useEffect(() => {
-    const hashParams = new URLSearchParams(window.location.hash.slice(1));
-    const token = hashParams.get("token");
+    const readTokenFromHash = () => {
+      const hashParams = new URLSearchParams(window.location.hash.slice(1));
+      const token = hashParams.get("token");
 
-    if (token) {
-      localStorage.setItem(LOCALSTORAGE_TOKEN_KEY, token);
-      // Clean URL (and the history entry holding the token)
-      window.history.replaceState(
-        {},
-        "",
-        window.location.pathname + window.location.search,
-      );
-      redirectAfterLogin();
-    }
+      if (token) {
+        localStorage.setItem(LOCALSTORAGE_TOKEN_KEY, token);
+        // Clean URL (and the history entry holding the token)
+        window.history.replaceState(
+          {},
+          "",
+          window.location.pathname + window.location.search,
+        );
+        redirectAfterLogin();
+      }
+    };
+
+    readTokenFromHash();
+    // A same-page navigation to /#token=... doesn't remount the app
+    window.addEventListener("hashchange", readTokenFromHash);
+    return () => window.removeEventListener("hashchange", readTokenFromHash);
   }, [redirectAfterLogin]);
 
   useEffect(() => {
