@@ -2,17 +2,15 @@
 
 Tidarr is a Docker image that provides a web interface to download up to **24-bit 192.0 kHz** media (tracks, albums, playlists, music videos) from Tidal using Tiddl python binary. Format on the fly with Beets, automatically update your Plex library, push notifications, or use it as a Lidarr provider.
 
-[![GitHub Stars](https://img.shields.io/github/stars/cstaelen/tidarr.svg?color=94398d&labelColor=555555&logoColor=ffffff&style=for-the-badge&logo=github)](https://github.com/cstaelen/tidarr)
-[![GitHub Release](https://img.shields.io/github/release-date/cstaelen/tidarr?color=94398d&labelColor=555555&logoColor=ffffff&style=for-the-badge&logo=github)](https://github.com/cstaelen/tidarr/releases)
-[![GitHub Release](https://img.shields.io/github/release/cstaelen/tidarr?color=94398d&labelColor=555555&logoColor=ffffff&style=for-the-badge&logo=github)](https://github.com/cstaelen/tidarr/releases)
-![Dependabot](https://img.shields.io/badge/dependabot-active-brightgreen?logo=dependabot&style=for-the-badge)
-![Playwright CI](https://img.shields.io/github/actions/workflow/status/cstaelen/tidarr/playwright.yml?label=Playwright%20CI&labelColor=555555&logoColor=ffffff&style=for-the-badge&logo=github)
-![Docker build](https://img.shields.io/github/actions/workflow/status/cstaelen/tidarr/docker-push.yml?label=Docker%20build&labelColor=555555&logoColor=ffffff&style=for-the-badge&logo=github)
-[![Docker Pulls](https://img.shields.io/docker/pulls/cstaelen/tidarr.svg?color=1d64ed&labelColor=1d8fed&logoColor=ffffff&style=for-the-badge&label=pulls&logo=docker)](https://hub.docker.com/r/cstaelen/tidarr)
-![Docker image size](https://img.shields.io/docker/image-size/cstaelen/tidarr?style=for-the-badge)
-<a href="https://www.buymeacoffee.com/clst" target="_blank" title="Buy Me A Coffee"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="28" style="height: 28px !important;width: 110px !important;" ></a>
+> [!NOTE]
+> **goopy** is a fork of [Tidarr](https://github.com/cstaelen/tidarr) by [cstaelen](https://github.com/cstaelen), released under the MIT license. Images are published to `ghcr.io/thatnerd64/goopy`.
 
-<img src="https://github.com/cstaelen/tidarr/blob/main/.github/tidarr-demo.gif?raw=true" />
+![Unit tests](https://img.shields.io/github/actions/workflow/status/thatnerd64/goopy/unit-tests.yml?label=Unit%20tests&labelColor=555555&logoColor=ffffff&style=for-the-badge&logo=github)
+![Playwright CI](https://img.shields.io/github/actions/workflow/status/thatnerd64/goopy/playwright.yml?label=Playwright%20CI&labelColor=555555&logoColor=ffffff&style=for-the-badge&logo=github)
+![Docker build](https://img.shields.io/github/actions/workflow/status/thatnerd64/goopy/docker-push.yml?label=Docker%20build&labelColor=555555&logoColor=ffffff&style=for-the-badge&logo=github)
+[![GitHub Release](https://img.shields.io/github/release/thatnerd64/goopy?color=94398d&labelColor=555555&logoColor=ffffff&style=for-the-badge&logo=github)](https://github.com/thatnerd64/goopy/releases)
+
+<img src=".github/tidarr-demo.gif" />
 
 ## Table of Contents
 
@@ -119,15 +117,22 @@ Example docker-compose.yml :
 ```yaml
 services:
   tidarr:
-    image: cstaelen/tidarr
+    image: ghcr.io/thatnerd64/goopy:latest
     container_name: "tidarr"
     ports:
       - 8484:8484
     volumes:
       - /any/folder/to/tidarr/config:/shared
       - /any/folder/to/library:/music
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - ADMIN_PASSWORD=change-me
+      - JWT_SECRET=a-long-random-string
     restart: "unless-stopped"
 ```
+
+A fuller production example lives in [`compose.prod.example.yml`](compose.prod.example.yml).
 
 **or**
 
@@ -138,7 +143,7 @@ docker run  \
 		-p 8484:8484 \
 		-v /any/folder/to/tidarr/config:/shared \
 		-v /any/folder/to/library:/music \
-    cstaelen/tidarr:latest
+    ghcr.io/thatnerd64/goopy:latest
 ```
 
 > [!TIP]
@@ -621,7 +626,7 @@ Tidarr can be integrated with Lidarr as both a Newznab indexer and a SABnzbd dow
 > **Notes:**
 > - The shared download folder allows Tidarr to download files that Lidarr can then import
 >
-> 📖 **[Complete Setup Guide](https://github.com/cstaelen/tidarr/wiki/Lidarr-Integration-Guide)** - Detailed configuration, troubleshooting, and advanced topics
+> 📖 **[Complete Setup Guide](docs/LIDARR_INTEGRATION.md)** - Detailed configuration, troubleshooting, and advanced topics
 
 ## ADVANCED
 
@@ -687,7 +692,7 @@ As I'm the only maintainer for now, user requested features can take time.
 
 ## DONATE
 
-If you would like to support this project, please do not hesitate to make a donation. It contributes a lot to motivation, gives me the energy to continue maintaining the project and adding the features requested by the users :)
+This project is a fork of [Tidarr](https://github.com/cstaelen/tidarr). To support its original author:
 
 <a href="https://www.buymeacoffee.com/clst" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="40" width="160"></a>
 

@@ -119,7 +119,10 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           `https://api.github.com/repos/${TIDARR_REPO_URL}/releases`,
         );
 
-        const data = (await response?.json()) as ReleaseGithubType[];
+        if (!response.ok) return;
+
+        const data = (await response.json()) as ReleaseGithubType[];
+        if (!Array.isArray(data)) return;
         const filteredData = data.filter((release) => !release.prerelease);
 
         if (!filteredData?.[0]) return;
@@ -176,7 +179,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (e) {
-        console.log("fetch github issue", e);
+        console.error("fetch github releases", e);
       }
     }
   };

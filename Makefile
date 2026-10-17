@@ -1,4 +1,4 @@
-IMAGE=cstaelen/tidarr
+IMAGE=ghcr.io/thatnerd64/goopy
 IMAGE_TAG?=testing
 BUILD_VERSION?=0.0.0-prod
 PLATFORMS?=linux/amd64,linux/arm64

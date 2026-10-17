@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { MusicNote } from "@mui/icons-material";
 import { Alert, AlertTitle, Box, Button, Link } from "@mui/material";
+import { TIDARR_REPO_URL } from "src/contants";
 import { ArtistType } from "src/types";
 
 import { DownloadButton } from "../Buttons/DownloadButton";
@@ -83,7 +84,7 @@ export default function ArtistHeader({
         "config.toml" file.
         <br />
         <Link
-          href="https://github.com/cstaelen/tidarr?tab=readme-ov-file#download-settings-optional"
+          href={`https://github.com/${TIDARR_REPO_URL}?tab=readme-ov-file#download-settings`}
           target="_blank"
         >
           More details on Github

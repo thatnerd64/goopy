@@ -250,7 +250,7 @@ services:
       - proxy_network
 
   tidarr:
-    image: ghcr.io/cstaelen/tidarr:latest
+    image: ghcr.io/thatnerd64/goopy:latest
     container_name: tidarr
     environment:
       - ADMIN_PASSWORD=your_password
@@ -279,7 +279,7 @@ In this setup, use `http://tidarr:8484` as the forward address in NPM.
 
 - [Nginx SSE Documentation](http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffering)
 - [Server-Sent Events Specification](https://html.spec.whatwg.org/multipage/server-sent-events.html)
-- [Tidarr GitHub Issues](https://github.com/cstaelen/tidarr/issues)
+- [goopy GitHub Issues](https://github.com/thatnerd64/goopy/issues)
 
 ---
 

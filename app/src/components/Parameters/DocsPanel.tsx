@@ -8,6 +8,8 @@ import {
   Typography,
 } from "@mui/material";
 
+import { TIDARR_REPO_URL } from "src/contants";
+
 import { ModuleTitle } from "../TidalModule/Title";
 
 interface DocLink {
@@ -20,7 +22,7 @@ const docLinks: DocLink[] = [
   {
     title: "Tidarr Documentation",
     description: "Getting started, features, and Docker setup",
-    url: "https://github.com/cstaelen/tidarr",
+    url: `https://github.com/${TIDARR_REPO_URL}`,
   },
   {
     title: "Tiddl Configuration",
@@ -35,17 +37,17 @@ const docLinks: DocLink[] = [
   {
     title: "Lidarr Integration",
     description: "Use Tidarr as indexer and download client",
-    url: "https://github.com/cstaelen/tidarr/wiki/Lidarr-Integration-Guide",
+    url: `https://github.com/${TIDARR_REPO_URL}/blob/main/docs/LIDARR_INTEGRATION.md`,
   },
   {
     title: "Custom processing scripts",
     description: "Run shell scripts during post-processing",
-    url: "https://github.com/cstaelen/tidarr/wiki/Custom-processing-script",
+    url: `https://github.com/${TIDARR_REPO_URL}/blob/main/docs/CUSTOM_SCRIPT_DOCUMENTATION.md`,
   },
   {
     title: "Tidarr API",
     description: "REST endpoints for automation and scripting",
-    url: "https://github.com/cstaelen/tidarr/wiki/Tidarr-API-Documentation",
+    url: `https://github.com/${TIDARR_REPO_URL}/blob/main/docs/API_DOCUMENTATION.md`,
   },
 ];
 

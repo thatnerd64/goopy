@@ -1,6 +1,6 @@
 import { Divider, Link, Paper, styled } from "@mui/material";
 import Markdown from "markdown-to-jsx";
-import { TIDARR_REPO_URL } from "src/contants";
+import { TIDARR_DOCKER_IMAGE, TIDARR_REPO_URL } from "src/contants";
 import { useConfigProvider } from "src/provider/ConfigProvider";
 
 import { ModuleTitle } from "../TidalModule/Title";
@@ -19,7 +19,7 @@ export default function UpdatePanel() {
           </Paper>
           <p>To update image stop container and run :</p>
           <Paper sx={{ p: 2 }}>
-            <code>docker compose pull tidarr</code>
+            <code>docker pull {TIDARR_DOCKER_IMAGE}:latest</code>
           </Paper>
         </>
       ) : (

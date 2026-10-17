@@ -1,0 +1,27 @@
+# Production example: copy to compose.yml next to your data and adjust.
+# Full list of options: README.md
+services:
+  tidarr:
+    image: ghcr.io/thatnerd64/goopy:latest
+    container_name: "tidarr"
+    ports:
+      - 8484:8484
+    volumes:
+      - ./config:/shared
+      - /path/to/music/library:/music
+      # Optional: keep temporary downloads off a small config drive
+      # - /path/to/big/drive/processing:/shared/.processing
+    environment:
+      # Run as your own user instead of root (see `id -u` / `id -g`)
+      - PUID=1000
+      - PGID=1000
+      - UMASK=022
+      - TZ=Etc/UTC
+      # Required when the UI is reachable by anyone but you
+      - ADMIN_PASSWORD=change-me
+      # Keeps sessions valid across restarts: generate one with `openssl rand -hex 32`
+      - JWT_SECRET=replace-with-a-long-random-string
+      # Set to the number of proxies in front of Tidarr (e.g. 1) when behind a reverse proxy
+      - TRUST_PROXY=
+    restart: "unless-stopped"
+    init: true
