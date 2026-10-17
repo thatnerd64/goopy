@@ -110,12 +110,8 @@ test.describe("Tests with password auth", () => {
     await regenerateButton.click();
 
     // Wait for the API key to update
+    await expect(apiKeyField).not.toHaveValue(apiKey);
     await expect(apiKeyField).not.toBeEmpty();
-
-    const apiKeyNew = await apiKeyField.inputValue();
-    expect(apiKeyNew).toBeDefined();
-
-    expect(apiKeyNew).not.toEqual(apiKey);
   });
 });
 
