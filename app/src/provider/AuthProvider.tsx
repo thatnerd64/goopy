@@ -79,7 +79,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    return response;
+    // No answer at all: server error (5xx) or network failure
+    return (
+      response ?? {
+        error: true,
+        message: "Unable to reach the server. Please try again.",
+      }
+    );
   };
 
   const loginWithOIDC = useCallback(() => {

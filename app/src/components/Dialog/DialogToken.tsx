@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import WarningIcon from "@mui/icons-material/Warning";
 import { CircularProgress, Link, Paper, Typography } from "@mui/material";
 import { EventSourceController } from "event-source-plus";
+import { TIDARR_REPO_URL } from "src/contants";
 import { useApiFetcher } from "src/provider/ApiFetcherProvider";
 import { useConfigProvider } from "src/provider/ConfigProvider";
 
@@ -50,7 +51,6 @@ export const DialogToken = () => {
   useEffect(() => {
     if ((tokenMissing || !!sseController) && !error) return;
     setTimeout(() => {
-      console.log("Closing token SSE.");
       setSseController(undefined);
       sseController?.abort();
     });
@@ -94,7 +94,7 @@ export const DialogToken = () => {
       <p>
         ... or create Tidal token using CLI :{" "}
         <Link
-          href="https://github.com/cstaelen/tidarr?tab=readme-ov-file#tidal-authentication"
+          href={`https://github.com/${TIDARR_REPO_URL}?tab=readme-ov-file#tidal-authentication`}
           target="_blank"
         >
           Github

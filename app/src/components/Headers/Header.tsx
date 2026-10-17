@@ -81,7 +81,7 @@ export default function PageHeader({
       <Box
         aria-hidden="true"
         sx={{
-          backgroundImage: `url(${image})`,
+          backgroundImage: `url("${image}")`,
           backgroundPosition: "center",
           backgroundSize: "cover",
           filter: "blur(48px) saturate(150%)",

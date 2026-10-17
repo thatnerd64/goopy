@@ -159,7 +159,7 @@ export function APIFetcherProvider({ children }: { children: ReactNode }) {
         },
       );
     } catch (e: unknown) {
-      console.log((e as Error).message);
+      console.error((e as Error).message);
       setApiError({ statusText: (e as Error).message } as Response);
       return;
     }
@@ -182,7 +182,7 @@ export function APIFetcherProvider({ children }: { children: ReactNode }) {
         onMessage(message);
       },
       onResponseError({ response }) {
-        console.log(`EventSource close : ${response}`);
+        console.error(`EventSource closed: ${response.status}`);
         controller.abort();
       },
     });

@@ -29,11 +29,19 @@ export function useFileEdit(
     setSaveError(undefined);
     try {
       const result = (await setter(content)) as
-        | { error?: unknown; message?: unknown }
+        | { success?: unknown; error?: unknown; message?: unknown }
         | undefined;
 
-      if (result && typeof result === "object" && result.error) {
-        setSaveError(String(result.error));
+      // Anything but an explicit success (403, 5xx, network error...) is a
+      // failure: keep the edits on screen
+      if (!result || typeof result !== "object" || result.success !== true) {
+        const message =
+          typeof result?.message === "string"
+            ? result.message
+            : typeof result?.error === "string"
+              ? result.error
+              : "The file could not be saved.";
+        setSaveError(message);
         return false;
       }
 
