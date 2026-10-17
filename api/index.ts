@@ -7,6 +7,7 @@ import { setAppInstance } from "./src/helpers/app-instance";
 import { checkConfig } from "./src/helpers/check-config";
 import { get_tiddl_config } from "./src/helpers/get_tiddl_config";
 import { gracefulShutdown } from "./src/helpers/gracefull_shutdown";
+import { loadQueueFromFile } from "./src/helpers/queue_save_file";
 import {
   buildCorsMiddleware,
   noStore,
@@ -15,7 +16,7 @@ import {
 } from "./src/helpers/http-security";
 import { logExpiresToken } from "./src/helpers/refresh-token";
 import { ProcessingStack } from "./src/processing/core/processing-manager";
-import { cleanFolder } from "./src/processing/utils/jobs";
+import { cleanProcessingFolderOnStartup } from "./src/processing/utils/jobs";
 import { setupJellyfinProxy } from "./src/proxies/jellyfin";
 import { setupNavidromeProxy } from "./src/proxies/navidrome";
 import { setupPlexProxy } from "./src/proxies/plex";
@@ -43,6 +44,16 @@ dotenv.config({
   path: path.join(__dirname, "../.env"),
   override: false,
   quiet: true,
+});
+
+// A failed background task (disk full, network error...) must not take the
+// whole server down: log it. Uncaught exceptions leave unknown state: exit.
+process.on("unhandledRejection", (reason) => {
+  console.error("❌ [SERVER] Unhandled promise rejection:", reason);
+});
+process.on("uncaughtException", (error) => {
+  console.error("❌ [SERVER] Uncaught exception, exiting:", error);
+  process.exit(1);
 });
 
 const port = parseInt(process.env.PORT || "8484", 10);
@@ -103,7 +114,14 @@ app.use("/api", lidarrRouter);
 
 checkConfig();
 
-const server = app.listen(port, async () => {
+const server = app.listen(port, () => {
+  startServer().catch((error) => {
+    console.error("❌ [SERVER] Startup failed:", error);
+    process.exit(1);
+  });
+});
+
+async function startServer() {
   const config = await configureServer();
   app.locals.config = config;
 
@@ -111,8 +129,16 @@ const server = app.listen(port, async () => {
   const { config: tiddlConfig } = get_tiddl_config();
   app.locals.tiddlConfig = tiddlConfig;
 
-  // Clean up all processing folders
-  await cleanFolder();
+  // Clean up processing folders, except those of failed items: their files
+  // are kept for "Retry post-processing"
+  const storedQueue = await loadQueueFromFile();
+  await cleanProcessingFolderOnStartup(
+    new Set(
+      storedQueue
+        .filter((item) => item?.status === "error")
+        .map((item) => String(item.id)),
+    ),
+  );
 
   // Log token expiration status
   logExpiresToken(tiddlConfig?.auth?.expires_at);
@@ -134,7 +160,7 @@ const server = app.listen(port, async () => {
   await createSyncCronJob(app);
 
   console.log(`⚡️ [SERVER]: Server is running at http://${hostname}:${port}`);
-});
+}
 
 // Graceful shutdown
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM", app, server));

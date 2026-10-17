@@ -1,6 +1,7 @@
 import { Express } from "express";
 
 import { NZB_DOWNLOAD_PATH, PROCESSING_PATH } from "../../../constants";
+import { killChildProcessesForItem } from "../../helpers/child-processes";
 import { checkBatchPause, getBatchDelayMs } from "../../services/batch-queue";
 import {
   computeCooldown,
@@ -18,6 +19,25 @@ import {
 import { logs } from "../utils/logs";
 
 const MAX_RETRIES = 3;
+
+type PostProcessingRun = {
+  item: ProcessingItemType;
+  // Set when the item is removed (or on shutdown): the run stops at the next step
+  cancelled: boolean;
+};
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+// Runs `fn` right away and turns a throw or a rejection into a rejected promise
+function run(fn: () => unknown): Promise<unknown> {
+  try {
+    return Promise.resolve(fn());
+  } catch (error) {
+    return Promise.reject(error);
+  }
+}
 
 /**
  * Manages the parallel processing queue with 1 download slot and 1 post-processing slot
@@ -41,6 +61,10 @@ export class QueueManager {
   private cooldownTimer: NodeJS.Timeout | null = null;
   // Downloads that just finished and are still being accounted for
   private slotsBeingReleased = 0;
+  // Tidarr post-processing in progress. Holds the slot until the run really
+  // ends, even when its item was removed meanwhile.
+  private activePostProcessing: PostProcessingRun | null = null;
+  private shuttingDown = false;
 
   constructor(
     data: ProcessingItemType[],
@@ -76,12 +100,20 @@ export class QueueManager {
     }
   }
 
+  private isPostProcessing(): boolean {
+    return (
+      this.activePostProcessing !== null ||
+      this.data.some((item) => item.status === "processing")
+    );
+  }
+
   /**
-   * Prepares an item for post-processing
+   * True while a removed item's post-processing is still winding down: an
+   * item re-added with the same id must not download into that folder yet.
    */
-  async preparePostProcessing(item: ProcessingItemType): Promise<void> {
-    item["status"] = "processing";
-    this.updateItemCallback(item);
+  isFinishingCancelledRun(id: string): boolean {
+    const run = this.activePostProcessing;
+    return !!run && run.cancelled && run.item.id === id;
   }
 
   /**
@@ -89,33 +121,39 @@ export class QueueManager {
    * When paused, only the download slot is blocked — post-processing continues.
    */
   async processQueue(): Promise<void> {
-    const isDownloading =
-      this.slotsBeingReleased > 0 ||
-      this.data.some((item) => item.status === "download");
-    const isPostProcessing = this.data.some(
-      (item) => item.status === "processing",
-    );
+    if (this.shuttingDown) return;
 
-    if (!isDownloading && !this.isPaused && !this.isCoolingDown()) {
-      const nextDownload = this.data.find(
-        (item) => item.status === "queue_download",
-      );
+    try {
+      const isDownloading =
+        this.slotsBeingReleased > 0 ||
+        this.data.some((item) => item.status === "download");
 
-      if (nextDownload) {
-        await this.prepareDownload(nextDownload);
-        this.startDownload(nextDownload);
+      if (!isDownloading && !this.isPaused && !this.isCoolingDown()) {
+        const nextDownload = this.data.find(
+          (item) =>
+            item.status === "queue_download" &&
+            !this.isFinishingCancelledRun(item.id),
+        );
+
+        if (nextDownload) {
+          // Claims the slot synchronously (status "download") before awaiting
+          await this.prepareDownload(nextDownload);
+          this.startDownload(nextDownload);
+        }
       }
-    }
 
-    if (!isPostProcessing) {
-      const nextPostProcess = this.data.find(
-        (item) => item.status === "queue_processing",
-      );
+      // Checked after the await above: another call may have started one meanwhile
+      if (!this.isPostProcessing()) {
+        const nextPostProcess = this.data.find(
+          (item) => item.status === "queue_processing",
+        );
 
-      if (nextPostProcess) {
-        await this.preparePostProcessing(nextPostProcess);
-        this.startPostProcessing(nextPostProcess);
+        if (nextPostProcess) {
+          this.startPostProcessing(nextPostProcess);
+        }
       }
+    } catch (error) {
+      console.error("❌ [QUEUE] Error while processing the queue:", error);
     }
   }
 
@@ -123,100 +161,148 @@ export class QueueManager {
    * Starts downloading an item
    */
   startDownload(item: ProcessingItemType): void {
-    handleDownload(item, this.app, async (playlistId) => {
-      // Keep the download slot taken until this item is fully accounted for:
-      // the batch pause and the cooldown are decided after some awaits, and a
-      // concurrent processQueue() must not start the next download meanwhile.
-      this.slotsBeingReleased++;
-      let released = false;
-      const release = () => {
-        if (!released) {
-          released = true;
-          this.slotsBeingReleased--;
-        }
-      };
+    run(() =>
+      handleDownload(item, this.app, (playlistId) =>
+        this.onDownloadEnd(item, playlistId),
+      ),
+    ).catch((error) => {
+      // e.g. discography expansion or mix preparation failed
+      logs(item.id, `❌ [TIDARR] Download failed: ${errorMessage(error)}`);
 
-      try {
-        // Download completed
-        delete item.process;
+      // Paused or removed meanwhile: nothing left to account for
+      if (item.status !== "download" || !this.data.includes(item)) {
+        this.processQueue();
+        return;
+      }
 
-        // If error, retry immediately up to MAX_RETRIES times
-        if (item.status === "error") {
-          item.errorStage = "download";
+      item.status = "error";
+      item.loading = false;
+      item.networkError = false;
+      this.updateItemCallback(item);
+      this.onDownloadEnd(item);
+    });
+  }
 
-          if (this.shouldRetry(item)) {
-            this.updateItemCallback(item);
-            this.startDownload(item);
-            return;
-          }
+  /**
+   * Called once a download ended (successfully or not)
+   */
+  private async onDownloadEnd(
+    item: ProcessingItemType,
+    playlistId?: string,
+  ): Promise<void> {
+    // Keep the download slot taken until this item is fully accounted for:
+    // the batch pause and the cooldown are decided after some awaits, and a
+    // concurrent processQueue() must not start the next download meanwhile.
+    this.slotsBeingReleased++;
+    let released = false;
+    const release = () => {
+      if (!released) {
+        released = true;
+        this.slotsBeingReleased--;
+      }
+    };
 
-          // Rescue partially downloaded files instead of wiping them
-          const hadPartialFiles = await hasFileToMove(
-            `${PROCESSING_PATH}/${item.id}`,
-          );
+    let lidarrPostProcessingStarted = false;
 
-          if (hadPartialFiles) {
-            item.status = "queue_processing";
-            await this.applyBatchPause(item, `${PROCESSING_PATH}/${item.id}`);
+    try {
+      // Download completed
+      delete item.process;
 
-            this.updateItemCallback(item);
-            await this.updateItemInQueueFileCallback(item);
-            release();
-            this.processQueue();
-            return;
-          }
+      // If error, retry immediately up to MAX_RETRIES times
+      if (item.status === "error") {
+        item.errorStage = "download";
 
-          await cleanFolder(item.id);
-
-          // Trigger next items in queue
-          release();
-          this.processQueue();
+        if (this.shouldRetry(item)) {
+          this.updateItemCallback(item);
+          this.startDownload(item);
           return;
         }
 
-        // Clear any stale errorStage from a previous failed attempt
-        item.errorStage = undefined;
+        // Rescue partially downloaded files instead of wiping them
+        const hadPartialFiles = await hasFileToMove(
+          `${PROCESSING_PATH}/${item.id}`,
+        );
 
-        // For LIDARR items, go straight to post-processing
-        if (item.source === "lidarr") {
-          item.status = "processing";
+        if (hadPartialFiles) {
+          item.status = "queue_processing";
+          await this.applyBatchPause(item, `${PROCESSING_PATH}/${item.id}`);
+
           this.updateItemCallback(item);
           await this.updateItemInQueueFileCallback(item);
-
-          // Increment batch counter before notifying SSE so UI sees updated count
-          await this.applyBatchPause(item, `${NZB_DOWNLOAD_PATH}/${item.id}`);
-
-          // Start Lidarr post-processing immediately
-          postProcessLidarr(item, () => {
-            this.onPostProcessingComplete(item);
-          });
-
-          // Trigger download of next item
           release();
           this.processQueue();
           return;
         }
 
-        // For TIDARR items, move to post-processing queue
-        item.status = "queue_processing";
+        await cleanFolder(item.id);
 
-        // Store playlistId for cleanup after post-processing
-        if (playlistId) {
-          (item as ProcessingItemWithPlaylist).playlistId = playlistId;
-        }
+        // Trigger next items in queue
+        release();
+        this.processQueue();
+        return;
+      }
 
-        // Increment batch counter before notifying SSE so UI sees updated count
-        await this.applyBatchPause(item, `${PROCESSING_PATH}/${item.id}`);
+      // Clear any stale errorStage from a previous failed attempt
+      item.errorStage = undefined;
 
+      // For LIDARR items, go straight to post-processing
+      if (item.source === "lidarr") {
+        item.status = "processing";
         this.updateItemCallback(item);
         await this.updateItemInQueueFileCallback(item);
 
+        // Increment batch counter before notifying SSE so UI sees updated count
+        await this.applyBatchPause(item, `${NZB_DOWNLOAD_PATH}/${item.id}`);
+
+        // Start Lidarr post-processing immediately
+        lidarrPostProcessingStarted = true;
+        this.startLidarrPostProcessing(item);
+
+        // Trigger download of next item
         release();
         this.processQueue();
-      } finally {
-        release();
+        return;
       }
-    });
+
+      // For TIDARR items, move to post-processing queue
+      item.status = "queue_processing";
+
+      // Store playlistId for cleanup after post-processing
+      if (playlistId) {
+        (item as ProcessingItemWithPlaylist).playlistId = playlistId;
+      }
+
+      // Increment batch counter before notifying SSE so UI sees updated count
+      await this.applyBatchPause(item, `${PROCESSING_PATH}/${item.id}`);
+
+      this.updateItemCallback(item);
+      await this.updateItemInQueueFileCallback(item);
+
+      release();
+      this.processQueue();
+    } catch (error) {
+      // e.g. the queue file could not be written (disk full, permissions)
+      console.error(
+        `❌ [QUEUE] Failed to finish the download of ${item.id}:`,
+        error,
+      );
+      logs(item.id, `❌ [TIDARR] ${errorMessage(error)}`);
+      // A Lidarr item left "processing" without its post-processing would
+      // block the post-processing slot forever
+      const stuckLidarrItem =
+        item.source === "lidarr" &&
+        item.status === "processing" &&
+        !lidarrPostProcessingStarted;
+      if (item.status === "download" || stuckLidarrItem) {
+        item.errorStage = stuckLidarrItem ? "post_processing" : "download";
+        item.status = "error";
+      }
+      this.updateItemCallback(item);
+      release();
+      this.processQueue();
+    } finally {
+      release();
+    }
   }
 
   /**
@@ -311,20 +397,80 @@ export class QueueManager {
    * Starts post-processing an item
    */
   private startPostProcessing(item: ProcessingItemType): void {
-    postProcessTidarr(item, () => {
-      this.onPostProcessingComplete(item);
+    // Claim the slot synchronously so concurrent processQueue() calls see it
+    item["status"] = "processing";
+    const postProcessing: PostProcessingRun = { item, cancelled: false };
+    this.activePostProcessing = postProcessing;
+    this.updateItemCallback(item);
+
+    let completed = false;
+    const complete = () => {
+      if (completed) return;
+      completed = true;
+      this.onPostProcessingComplete(item, postProcessing);
+    };
+
+    run(() =>
+      postProcessTidarr(
+        item,
+        complete,
+        () => postProcessing.cancelled || this.shuttingDown,
+      ),
+    ).catch((error) => {
+      this.markPostProcessingFailed(item, error);
+      complete();
     });
+  }
+
+  private startLidarrPostProcessing(item: ProcessingItemType): void {
+    let completed = false;
+    const complete = () => {
+      if (completed) return;
+      completed = true;
+      this.onPostProcessingComplete(item);
+    };
+
+    run(() => postProcessLidarr(item, complete)).catch((error) => {
+      this.markPostProcessingFailed(item, error);
+      complete();
+    });
+  }
+
+  private markPostProcessingFailed(item: ProcessingItemType, error: unknown) {
+    console.error(`❌ [QUEUE] Post-processing of ${item.id} failed:`, error);
+    logs(item.id, `❌ [TIDARR] Post-processing failed: ${errorMessage(error)}`);
+    item.status = "error";
+    item.error = true;
+    if (item.errorStage !== "download") {
+      item.errorStage = "post_processing";
+    }
   }
 
   /**
    * Retries post-processing for an error item without re-downloading
    */
   async retryPostProcessing(item: ProcessingItemType): Promise<void> {
-    item.status = "processing";
-    item.error = false;
-    this.updateItemCallback(item);
+    if (this.isPostProcessing()) {
+      throw new Error(
+        "Another item is already post-processing, please retry once it completes",
+      );
+    }
 
+    item.error = false;
     this.startPostProcessing(item);
+  }
+
+  /**
+   * Stops the post-processing of a removed item: its child processes are
+   * killed and the run stops at the next step. The slot stays taken until
+   * the run has really ended.
+   */
+  async cancelPostProcessing(id: string): Promise<void> {
+    const run = this.activePostProcessing;
+    if (!run || run.item.id !== id || run.cancelled) return;
+
+    run.cancelled = true;
+    await killChildProcessesForItem(id);
   }
 
   /**
@@ -332,15 +478,39 @@ export class QueueManager {
    */
   private async onPostProcessingComplete(
     item: ProcessingItemType,
+    run?: PostProcessingRun,
   ): Promise<void> {
-    // Update item in queue file
-    await this.updateItemInQueueFileCallback(item);
+    try {
+      // A cancelled run's item was removed (or may have been re-added with
+      // the same id): its state must not be written over the new one
+      if (!run?.cancelled && !this.shuttingDown) {
+        await this.updateItemInQueueFileCallback(item);
+        this.updateItemCallback(item);
+      }
+    } catch (error) {
+      console.error(
+        `❌ [QUEUE] Failed to save the state of ${item.id}:`,
+        error,
+      );
+      this.updateItemCallback(item);
+    } finally {
+      if (run && this.activePostProcessing === run) {
+        this.activePostProcessing = null;
+      }
+      // Trigger next items in queue
+      this.processQueue();
+    }
+  }
 
-    // Update item status
-    this.updateItemCallback(item);
-
-    // Trigger next items in queue
-    this.processQueue();
+  /**
+   * Stops starting new work and cancels the running post-processing
+   * (graceful shutdown). Items left unfinished are queued again on restart.
+   */
+  shutdown(): void {
+    this.shuttingDown = true;
+    if (this.activePostProcessing) this.activePostProcessing.cancelled = true;
+    if (this.batchResumeTimer) clearTimeout(this.batchResumeTimer);
+    if (this.cooldownTimer) clearTimeout(this.cooldownTimer);
   }
 
   /**

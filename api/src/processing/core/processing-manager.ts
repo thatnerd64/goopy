@@ -108,14 +108,18 @@ export const ProcessingStack = () => {
     }
 
     const records = await loadQueueFromFile();
-    records.forEach((record) => {
+    for (const stored of records) {
       // The id is used as a folder name: never trust a stored one blindly
-      if (!isSafeId(record?.id)) {
+      if (!isSafeId(stored?.id)) {
         console.warn(
-          `⚠️ [QUEUE] Ignoring queue entry with an unsafe id: ${JSON.stringify(record?.id)}`,
+          `⚠️ [QUEUE] Ignoring queue entry with an unsafe id: ${JSON.stringify(stored?.id)}`,
         );
-        return;
+        continue;
       }
+
+      // A copy: the stored object is the queue file cache, live fields set on
+      // the in-memory item (process handle, progress) must not end up on disk
+      const record = { ...stored };
 
       // Reset any items that were in-progress during a crash back to appropriate state
       if (
@@ -128,8 +132,15 @@ export const ProcessingStack = () => {
         record.status = "queue_download";
       }
 
-      addItem(record);
-    });
+      try {
+        await addItem(record);
+      } catch (error) {
+        console.error(
+          `❌ [QUEUE] Could not restore queue entry ${record.id}:`,
+          error,
+        );
+      }
+    }
 
     if (!queueManager.isPausedState()) {
       queueManager.processQueue();
@@ -224,6 +235,7 @@ export const ProcessingStack = () => {
 
     await removeItemFromFile(id);
     await killProcess(item?.process, id);
+    await queueManager.cancelPostProcessing(id);
 
     const playlistId = (item as ProcessingItemWithPlaylist).playlistId;
     if (playlistId) {
@@ -245,6 +257,7 @@ export const ProcessingStack = () => {
   async function removeAllItems() {
     for (const item of data) {
       await killProcess(item?.process, item.id);
+      await queueManager.cancelPostProcessing(item.id);
       const playlistId = (item as ProcessingItemWithPlaylist).playlistId;
       if (playlistId) deletePlaylist(playlistId, item.id);
       outputs.delete(String(item.id));
@@ -295,8 +308,15 @@ export const ProcessingStack = () => {
 
   function updateItem(item: ProcessingItemType) {
     if (item?.status === "finished" || item?.status === "error") {
-      // Add item to history (if enabled)
-      addItemToHistory(item.id);
+      // Download history marks items as already downloaded: failures don't count
+      if (item.status === "finished") {
+        addItemToHistory(item.id).catch((error) =>
+          console.error(
+            `❌ [HISTORY] Could not add "${item.id}" to history:`,
+            error,
+          ),
+        );
+      }
 
       queueManager.processQueue();
     }
@@ -324,9 +344,17 @@ export const ProcessingStack = () => {
       throw new Error(`Item ${id} cannot be individually downloaded`);
     }
 
-    item.status = "queue_download";
+    if (queueManager.isFinishingCancelledRun(id)) {
+      throw new Error(
+        `Item ${id} is still being cleaned up, please retry in a moment`,
+      );
+    }
+
+    // prepareDownload() sets the "download" status synchronously, before any
+    // await: a concurrent processQueue() cannot pick the same item meanwhile
+    const prepared = queueManager.prepareDownload(item);
     await updateItemInQueueFile(item);
-    await queueManager.prepareDownload(item);
+    await prepared;
     queueManager.startDownload(item);
 
     notifySSE();
@@ -339,12 +367,7 @@ export const ProcessingStack = () => {
       throw new Error(`Item ${id} is not in error status`);
     }
 
-    if (data.some((row) => row.status === "processing")) {
-      throw new Error(
-        "Another item is already post-processing, please retry once it completes",
-      );
-    }
-
+    // Throws when another item is already post-processing
     await queueManager.retryPostProcessing(item);
   }
 
@@ -388,6 +411,18 @@ export const ProcessingStack = () => {
     notifySSE();
   }
 
+  /**
+   * Graceful shutdown: stop starting work, kill the running download without
+   * marking it failed (it is queued again on restart).
+   */
+  async function shutdown() {
+    queueManager.shutdown();
+    for (const item of data) {
+      // killProcess strips the listeners: the item is not marked "error"
+      await killProcess(item.process, item.id);
+    }
+  }
+
   function resetBatchCount() {
     queueManager.resetBatchCount();
     notifySSE();
@@ -426,6 +461,7 @@ export const ProcessingStack = () => {
       resumeQueue,
       getQueueStatus,
       resetBatchCount,
+      shutdown,
     },
   };
 };
