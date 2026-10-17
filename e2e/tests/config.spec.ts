@@ -136,7 +136,9 @@ test("Tidarr config : Should see update button", async ({ page }) => {
     page.getByRole("heading", { name: "News & Updates" }),
   ).toBeVisible();
   await expect(page.getByText("Update available: 9.9.9")).toBeVisible();
-  await expect(page.getByText("docker compose pull tidarr")).toBeVisible();
+  await expect(
+    page.getByText("docker pull ghcr.io/thatnerd64/goopy:latest"),
+  ).toBeVisible();
 });
 
 test("Tidarr config : Should display Docs tab with documentation links", async ({
