@@ -66,11 +66,28 @@ export function editionKey(artist: string, title: string): string {
 
 export type EditionCandidate = {
   id: string | number;
-  title: string;
+  title?: string;
   artist?: string;
   /** `undefined` means "unknown" and is treated as a clean edition. */
   explicit?: boolean;
+  /**
+   * Tidal release type (ALBUM, EP, SINGLE). An album and a single or EP
+   * sharing its title are different releases, not editions of each other.
+   * `undefined` means "unknown" (e.g. albums found through playlist tracks).
+   */
+  releaseType?: string;
 };
+
+function normalizeReleaseType(releaseType: string | undefined): string {
+  return releaseType?.trim().toUpperCase() ?? "";
+}
+
+// Unknown release types match any type
+function sameReleaseType(a: string | undefined, b: string | undefined) {
+  const typeA = normalizeReleaseType(a);
+  const typeB = normalizeReleaseType(b);
+  return !typeA || !typeB || typeA === typeB;
+}
 
 export type EditionSelection<T> = {
   selected: T[];
@@ -101,7 +118,7 @@ export function selectEditions<T extends EditionCandidate>(
   const wantExplicit = preference === "explicit";
   const groups = new Map<string, T[]>();
   for (const candidate of unique) {
-    const key = editionKey(candidate.artist ?? "", candidate.title);
+    const key = `${editionKey(candidate.artist ?? "", candidate.title ?? "")}\u0000${normalizeReleaseType(candidate.releaseType)}`;
     const group = groups.get(key);
     if (group) group.push(candidate);
     else groups.set(key, [candidate]);
@@ -134,22 +151,28 @@ export function excludeQueuedEditions<T extends EditionCandidate>(
     return { selected: candidates, skipped: [] };
   }
 
-  const queuedKeys = new Map<string, Set<string>>();
+  const queuedByKey = new Map<string, ProcessingItemType[]>();
   for (const queued of queue) {
     if (queued.type !== "album") continue;
     const key = editionKey(queued.artist ?? "", queued.title ?? "");
-    const ids = queuedKeys.get(key) ?? new Set<string>();
-    ids.add(String(queued.id));
-    queuedKeys.set(key, ids);
+    const group = queuedByKey.get(key) ?? [];
+    group.push(queued);
+    queuedByKey.set(key, group);
   }
 
   const selected: T[] = [];
   const skipped: T[] = [];
   for (const candidate of candidates) {
-    const ids = queuedKeys.get(
-      editionKey(candidate.artist ?? "", candidate.title),
+    const queued =
+      queuedByKey.get(
+        editionKey(candidate.artist ?? "", candidate.title ?? ""),
+      ) ?? [];
+    const sameRelease = queued.filter((item) =>
+      sameReleaseType(item.releaseType, candidate.releaseType),
     );
-    const isOtherEdition = !!ids && !ids.has(String(candidate.id));
+    const isOtherEdition =
+      sameRelease.length > 0 &&
+      !sameRelease.some((item) => String(item.id) === String(candidate.id));
     (isOtherEdition ? skipped : selected).push(candidate);
   }
 
