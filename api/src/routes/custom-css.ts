@@ -1,6 +1,6 @@
 import { Express, Request, Response, Router } from "express";
 
-import { ensureAccessIsGranted } from "../helpers/auth";
+import { ensureAccessIsGranted, ensureAdminAccess } from "../helpers/auth";
 import {
   handleRouteError,
   handleValidationError,
@@ -35,7 +35,7 @@ router.get(
  */
 router.post(
   "/custom-css",
-  ensureAccessIsGranted,
+  ensureAdminAccess,
   validateRequestBody(["css"]),
   async (req: Request, res: Response<CustomCSSSaveResponse>) => {
     try {

@@ -1,8 +1,11 @@
 import { Request, Response, Router } from "express";
 
-import { ensureAccessIsGranted } from "../helpers/auth";
+import { ensureAccessIsGranted, ensureAdminAccess } from "../helpers/auth";
 import { handleRouteError } from "../helpers/error-handler";
-import { get_tiddl_config } from "../helpers/get_tiddl_config";
+import {
+  get_tiddl_config,
+  toPublicTiddlConfig,
+} from "../helpers/get_tiddl_config";
 import { deleteTiddlConfig, tidalToken } from "../services/tiddl";
 import { SettingsResponse } from "../types";
 
@@ -28,7 +31,7 @@ router.get(
         ...res.app.locals.config,
         noToken:
           !tiddl_config?.auth?.token || tiddl_config?.auth?.token?.length === 0,
-        tiddl_config: tiddl_config,
+        tiddl_config: toPublicTiddlConfig(tiddl_config),
         configErrors: configErrors.length > 0 ? configErrors : undefined,
       });
     } catch (error) {
@@ -43,7 +46,7 @@ router.get(
  */
 router.get(
   "/run-token",
-  ensureAccessIsGranted,
+  ensureAdminAccess,
   async (req: Request, res: Response) => {
     try {
       res.setHeader("Content-Type", "text/event-stream");
@@ -61,20 +64,16 @@ router.get(
  * DELETE /api/token
  * Delete Tidal authentication token
  */
-router.delete(
-  "/token",
-  ensureAccessIsGranted,
-  (_req: Request, res: Response) => {
-    try {
-      deleteTiddlConfig();
-      // Reload config after deleting token (will have no auth now)
-      const { config: freshConfig } = get_tiddl_config();
-      res.app.locals.tiddlConfig = freshConfig;
-      res.sendStatus(204);
-    } catch (error) {
-      handleRouteError(error, res, "delete token");
-    }
-  },
-);
+router.delete("/token", ensureAdminAccess, (_req: Request, res: Response) => {
+  try {
+    deleteTiddlConfig();
+    // Reload config after deleting token (will have no auth now)
+    const { config: freshConfig } = get_tiddl_config();
+    res.app.locals.tiddlConfig = freshConfig;
+    res.sendStatus(204);
+  } catch (error) {
+    handleRouteError(error, res, "delete token");
+  }
+});
 
 export default router;

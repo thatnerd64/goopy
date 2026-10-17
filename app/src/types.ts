@@ -297,10 +297,9 @@ export type ConfigTiddleType = {
       mix?: string;
     };
   };
-  auth: {
-    token: string;
-    refresh_token: string;
-    expires_at: number;
+  // The Tidal tokens never leave the server: only the account fields are sent
+  auth?: {
+    expires_at?: number;
     user_id: string;
     country_code: string;
   };

@@ -3,6 +3,7 @@ import { Request, Response, Router } from "express";
 import { ensureAccessIsGranted } from "../helpers/auth";
 import { handleRouteError } from "../helpers/error-handler";
 import {
+  toQueueItem,
   validateIdMiddleware,
   validateItemMiddleware,
   validateRequestBody,
@@ -22,12 +23,16 @@ router.post(
   validateItemMiddleware,
   async (req: Request, res: Response) => {
     try {
-      const item = req.body.item;
+      // Only client-settable fields; falls back to the server-configured
+      // quality if the client didn't set one
+      const item = toQueueItem(
+        req.body.item,
+        req.app.locals.tiddlConfig?.download?.track_quality,
+      );
 
-      // Fall back to server-configured quality if the client didn't set one
-      if (!item.quality) {
-        item.quality = req.app.locals.tiddlConfig?.download?.track_quality;
-      }
+      // A retried Lidarr item must still be handed back to Lidarr
+      const existing = req.app.locals.processingStack.actions.getItem(item.id);
+      if (existing?.source) item.source = existing.source;
 
       await req.app.locals.processingStack.actions.addItem(item);
       res.sendStatus(201);

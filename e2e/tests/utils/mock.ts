@@ -198,8 +198,6 @@ export async function mockConfigAPI(
           ...realConfig?.tiddl_config,
           ...(customSettings?.tiddl_config as object),
           auth: {
-            token: "mock-token",
-            refresh_token: "mock-refresh-token",
             expires_at: 1234567890,
             user_id: "192283714",
             country_code: "FR",

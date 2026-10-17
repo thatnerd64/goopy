@@ -1,7 +1,7 @@
 import { Express, Request } from "express";
 import proxy, { ProxyOptions } from "express-http-proxy";
 
-import { ensureAccessIsGranted } from "../helpers/auth";
+import { ensureAdminAccess } from "../helpers/auth";
 
 type ProxyReqPathResolver = NonNullable<ProxyOptions["proxyReqPathResolver"]>;
 type ProxyReqOptsDecorator = NonNullable<ProxyOptions["proxyReqOptDecorator"]>;
@@ -30,7 +30,7 @@ export function setupServiceProxy(
 
   app.use(
     path,
-    ensureAccessIsGranted,
+    ensureAdminAccess,
     proxy(baseUrl, {
       ...(resolvePath ? { proxyReqPathResolver: resolvePath } : {}),
       proxyReqOptDecorator: (proxyReqOpts, srcReq) => {

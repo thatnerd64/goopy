@@ -39,7 +39,7 @@ vi.mock("../helpers/get_tiddl_config", () => ({
 }));
 
 import { setAppInstance } from "../helpers/app-instance";
-import { ensureAccessIsGranted } from "../helpers/auth";
+import { ensureAccessIsGranted, ensureAdminAccess } from "../helpers/auth";
 import {
   buildCorsMiddleware,
   parseTrustProxy,
@@ -69,6 +69,9 @@ beforeAll(async () => {
   app.use("/api", playbackRouter);
   app.use("/api", tomlRouter);
   app.get("/protected", ensureAccessIsGranted, (_req, res) => {
+    res.json({ ok: true });
+  });
+  app.get("/admin", ensureAdminAccess, (_req, res) => {
     res.json({ ok: true });
   });
   await new Promise<void>((resolve) => {
@@ -185,6 +188,57 @@ describe("login and tokens", () => {
     expect((await get("/protected", { "X-Api-Key": "wrong" })).status).toBe(
       403,
     );
+  });
+
+  it("refuses the API key on admin routes, which need a login", async () => {
+    expect((await get("/admin", { "X-Api-Key": "the-api-key" })).status).toBe(
+      403,
+    );
+    expect((await get("/admin?apikey=the-api-key")).status).toBe(403);
+
+    const { token } = await (await login(PASSWORD, "10.0.0.4")).json();
+    expect(
+      (await get("/admin", { Authorization: `Bearer ${token}` })).status,
+    ).toBe(200);
+  });
+
+  it("accepts password and OIDC tokens when both are configured", async () => {
+    process.env.OIDC_ISSUER = "https://idp.example.com";
+    process.env.OIDC_CLIENT_ID = "id";
+    process.env.OIDC_CLIENT_SECRET = "secret";
+    process.env.OIDC_REDIRECT_URI =
+      "https://tidarr.example.com/api/auth/oidc/callback";
+    try {
+      const { token } = await (await login(PASSWORD, "10.0.0.5")).json();
+      expect(
+        (await get("/protected", { Authorization: `Bearer ${token}` })).status,
+      ).toBe(200);
+
+      const oidcToken = jwt.sign({ oidcSub: "user-1" }, SECRET);
+      expect(
+        (await get("/protected", { Authorization: `Bearer ${oidcToken}` }))
+          .status,
+      ).toBe(200);
+
+      // A token with neither claim is still refused
+      const empty = jwt.sign({}, SECRET);
+      expect(
+        (await get("/protected", { Authorization: `Bearer ${empty}` })).status,
+      ).toBe(403);
+    } finally {
+      delete process.env.OIDC_ISSUER;
+      delete process.env.OIDC_CLIENT_ID;
+      delete process.env.OIDC_CLIENT_SECRET;
+      delete process.env.OIDC_REDIRECT_URI;
+    }
+  });
+
+  it("refuses an OIDC token once OIDC is no longer configured", async () => {
+    const oidcToken = jwt.sign({ oidcSub: "user-1" }, SECRET);
+    expect(
+      (await get("/protected", { Authorization: `Bearer ${oidcToken}` }))
+        .status,
+    ).toBe(403);
   });
 
   it("lets everything through when no authentication is configured", async () => {

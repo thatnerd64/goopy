@@ -50,6 +50,10 @@ export type ProcessingItemWithPlaylist = ProcessingItemType & {
   playlistId?: string;
 };
 
+export type PublicTiddlConfig = Omit<TiddlConfig, "auth"> & {
+  auth?: Pick<TiddlConfig["auth"], "user_id" | "country_code" | "expires_at">;
+};
+
 export type TiddlConfig = {
   enable_cache?: boolean;
   debug?: boolean;
@@ -171,7 +175,7 @@ export interface SettingsResponse {
     ENABLE_HISTORY?: string;
   };
   noToken: boolean;
-  tiddl_config?: TiddlConfig;
+  tiddl_config?: PublicTiddlConfig;
   configErrors?: string[];
 }
 
