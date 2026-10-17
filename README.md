@@ -233,7 +233,12 @@ environment:
   - CORS_ORIGIN=https://dashboard.example.com,https://other.example.com   # or * for any origin
 ```
 
-- **Set `JWT_SECRET`** to keep users logged in across restarts (a random one is generated at each start otherwise). Changing `ADMIN_PASSWORD` or `JWT_SECRET` logs everyone out.
+  With `TRUST_PROXY` set, Tidarr trusts the `X-Forwarded-For` header: only set it when port 8484 is reachable through your proxy alone, otherwise a client talking to Tidarr directly can fake its IP and dodge the limit.
+
+- **JWT secret**: when `JWT_SECRET` is not set, a strong one is generated once and kept in `/shared/.tidarr-jwt-secret`, so logins survive restarts. Changing `ADMIN_PASSWORD` or the secret logs everyone out.
+- **API key scope**: the API key (Lidarr, scripts) works on the queue, history, sync, settings and Lidarr/SABnzbd endpoints. Admin endpoints need a logged-in user: reading or regenerating the API key, saving the tiddl config or custom CSS, linking/unlinking the Tidal account, and the `/proxy/*` routes.
+- **Secrets stay on the server**: `/api/settings` never returns the Tidal access/refresh tokens, and shows tokens/passwords (`PLEX_TOKEN`, `JELLYFIN_API_KEY`, `GOTIFY_TOKEN`, `NTFY_TOKEN`, `NAVIDROME_PASSWORD`, `PUSH_OVER_URL`, credentials inside URLs) as `****`.
+- **CSRF protection**: write requests coming from another website are refused, and the API only accepts JSON bodies (an HTML form on a malicious page cannot change your settings, even without a password).
 - Item ids are restricted to letters, digits, `-` and `_`; notifications (Gotify, ntfy, Pushover webhook, Apprise) are sent natively over HTTP instead of through shell commands; the in-app audio player needs a login to get a stream URL.
 
 ### OpenID Connect (OIDC) Authentication
@@ -249,16 +254,27 @@ environment:
   - OIDC_CLIENT_ID=tidarr
   - OIDC_CLIENT_SECRET=your-client-secret
   - OIDC_REDIRECT_URI=https://your-tidarr-domain.com/api/auth/oidc/callback
+  # Who may log in (comma separated, matching any list is enough):
+  - OIDC_ALLOWED_EMAILS=me@example.com,partner@example.com
+  - OIDC_ALLOWED_SUBS=
+  - OIDC_ALLOWED_GROUPS=tidarr-admins
+  - OIDC_SCOPES=openid profile email groups   # optional, default "openid profile email"
 ```
+
+> [!WARNING]
+> Every account that logs in through OIDC gets **full access**. Set at least one of `OIDC_ALLOWED_EMAILS`, `OIDC_ALLOWED_SUBS` or `OIDC_ALLOWED_GROUPS`, especially if your provider lets anyone sign up. Without them, every account your provider accepts is let in (a warning is logged at startup).
 
 > [!NOTE]
 > **OIDC Configuration**
 >
-> - **OIDC_ISSUER**: The URL of your OpenID Connect provider
+> - **OIDC_ISSUER**: The URL of your OpenID Connect provider. Plain `http://` is only allowed when the issuer itself is an `http://` URL.
 > - **OIDC_CLIENT_ID**: The client ID registered in your OIDC provider
 > - **OIDC_CLIENT_SECRET**: The client secret for your application
-> - **OIDC_REDIRECT_URI**: The callback URL (must match the one configured in your OIDC provider)
-> - OIDC authentication takes precedence over password authentication if both are configured
+> - **OIDC_REDIRECT_URI**: The public callback URL (must match the one configured in your OIDC provider). After login the browser is sent back to the same origin (and sub-path), so use your public `https://` address.
+> - **OIDC_ALLOWED_EMAILS**: Emails allowed to log in (case-insensitive; an email the provider marks as unverified is ignored)
+> - **OIDC_ALLOWED_SUBS**: Subject identifiers (`sub` claim) allowed to log in
+> - **OIDC_ALLOWED_GROUPS**: Groups allowed to log in, read from the `groups` claim of the ID token (you may need `OIDC_SCOPES` with `groups`, depending on your provider)
+> - If both `ADMIN_PASSWORD` and OIDC are configured, the login page shows the password field; password and OIDC logins (`/api/auth/oidc/login`) are both accepted
 > - JWT tokens are valid for 12 hours after successful authentication
 
 ### Lock quality selector

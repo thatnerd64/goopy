@@ -23,6 +23,72 @@ export function buildCorsMiddleware(
   return cors({ origin: origins });
 }
 
+const SAFE_METHODS = ["GET", "HEAD", "OPTIONS"];
+
+function allowedCorsOrigins(raw: string | undefined): string[] | "*" {
+  const value = raw?.trim().replace(/^["']|["']$/g, "");
+  if (!value) return [];
+  if (value === "*") return "*";
+  return value
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+}
+
+/**
+ * CSRF protection: browsers flag every request with Sec-Fetch-Site. A page on
+ * another site (or another port of the same host) must not be able to change
+ * anything, even when Tidarr runs without a password: a plain HTML form can
+ * POST to any URL without a CORS preflight. Servers (Lidarr, scripts) don't
+ * send the header and are not affected. Origins listed in CORS_ORIGIN are
+ * allowed.
+ */
+export function rejectCrossSiteRequests(
+  raw: string | undefined = process.env.CORS_ORIGIN,
+): RequestHandler {
+  const allowed = allowedCorsOrigins(raw);
+  return (req, res, next) => {
+    if (SAFE_METHODS.includes(req.method)) return next();
+
+    const site = req.headers["sec-fetch-site"];
+    if (site !== "cross-site" && site !== "same-site") return next();
+
+    const origin = req.headers.origin?.replace(/\/$/, "");
+    if (allowed === "*" || (origin && allowed.includes(origin))) return next();
+
+    res
+      .status(403)
+      .json({ error: true, message: "Cross-site request refused" });
+  };
+}
+
+/**
+ * The API reads JSON bodies only. Refusing the content types an HTML form can
+ * send (urlencoded, multipart, text/plain) closes the other CSRF path, for
+ * browsers that don't send Sec-Fetch-Site. Requests without a body (no
+ * Content-Type) are fine.
+ */
+export function requireJsonBody(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  const contentType = req.headers["content-type"];
+  if (SAFE_METHODS.includes(req.method) || !contentType) return next();
+
+  // Not req.is(): it returns null for an empty body, and the web interface
+  // sends "application/json" on some body-less POSTs
+  const mediaType = contentType.split(";")[0].trim().toLowerCase();
+  if (mediaType === "application/json" || mediaType.endsWith("+json")) {
+    return next();
+  }
+
+  res.status(415).json({
+    error: true,
+    message: "Content-Type must be application/json",
+  });
+}
+
 export function securityHeaders(
   _req: Request,
   res: Response,

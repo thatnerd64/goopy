@@ -11,8 +11,11 @@ import {
   buildCorsMiddleware,
   noStore,
   parseTrustProxy,
+  rejectCrossSiteRequests,
+  requireJsonBody,
   securityHeaders,
 } from "./src/helpers/http-security";
+import { ensureJwtSecret } from "./src/helpers/jwt-secret";
 import { logExpiresToken } from "./src/helpers/refresh-token";
 import { ProcessingStack } from "./src/processing/core/processing-manager";
 import { cleanFolder } from "./src/processing/utils/jobs";
@@ -45,6 +48,8 @@ dotenv.config({
   quiet: true,
 });
 
+ensureJwtSecret();
+
 const port = parseInt(process.env.PORT || "8484", 10);
 const hostname = "0.0.0.0";
 
@@ -67,7 +72,14 @@ const corsMiddleware = buildCorsMiddleware();
 if (corsMiddleware) app.use(corsMiddleware);
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+
+// CSRF: refuse cross-site writes and the body types a plain HTML form can send.
+// The SABnzbd endpoint receives multipart NZB uploads from Lidarr (server to
+// server, API key) and parses its own body.
+app.use(rejectCrossSiteRequests());
+app.use("/api", (req, res, next) =>
+  req.path === "/sabnzbd/api" ? next() : requireJsonBody(req, res, next),
+);
 
 // Setup all API proxies (Tidal, Plex, Navidrome)
 

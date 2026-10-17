@@ -24,7 +24,9 @@ This documentation describes how to use the Tidarr REST API to automate download
 
 **API Base URL:** `http://your-host:8484`
 
-All API endpoints (except `/api/is-auth-active`) require authentication if `ADMIN_PASSWORD` is set in your Docker configuration.
+All API endpoints (except `/api/is-auth-active`) require authentication if `ADMIN_PASSWORD` or OIDC is set in your Docker configuration.
+
+Write requests (`POST`, `PUT`, `PATCH`, `DELETE`) must send a JSON body (`Content-Type: application/json`) or no body at all; form bodies are refused with `415` (CSRF protection). Write requests a browser flags as coming from another website are refused with `403`, unless that origin is listed in `CORS_ORIGIN`.
 
 ---
 
@@ -53,6 +55,8 @@ curl http://localhost:8484/api/settings \
 # Via query parameter
 curl "http://localhost:8484/api/settings?apikey=your-api-key"
 ```
+
+**Scope:** the API key works on the queue, history, sync, settings, playback and Lidarr/SABnzbd endpoints. Admin endpoints need a login (JWT) and refuse the API key: `GET /api/api-key`, `POST /api/api-key/regenerate`, `POST /api/tiddl/config`, `POST /api/custom-css`, `GET /api/run-token`, `DELETE /api/token` and the `/proxy/*` routes. A leaked key (it often ends up in proxy logs when sent as `?apikey=`) therefore cannot take over the instance.
 
 **Advantages:**
 - ✅ Secure random 64-character key
@@ -139,13 +143,15 @@ Redirects the user to the configured OIDC provider for authentication.
 GET /api/auth/oidc/callback
 ```
 
-Handles the OIDC callback and issues a JWT token. Redirects to the frontend with the token.
+Handles the OIDC callback and issues a JWT token. Redirects to the frontend (same origin as `OIDC_REDIRECT_URI`) with the token in the URL fragment (`/#token=...`), so it never reaches server or proxy logs. Accounts outside `OIDC_ALLOWED_EMAILS` / `OIDC_ALLOWED_SUBS` / `OIDC_ALLOWED_GROUPS` (when set) get `403`. `/api/auth/oidc/login` is limited to 30 attempts per 15 minutes and per IP.
 
 **Required environment variables:**
 - `OIDC_ISSUER` - The URL of your OpenID Connect provider
 - `OIDC_CLIENT_ID` - The client ID registered in your OIDC provider
 - `OIDC_CLIENT_SECRET` - The client secret for your application
 - `OIDC_REDIRECT_URI` - The callback URL (e.g., `https://your-tidarr-domain.com/api/auth/oidc/callback`)
+- `OIDC_ALLOWED_EMAILS`, `OIDC_ALLOWED_SUBS`, `OIDC_ALLOWED_GROUPS` - Who may log in (comma separated; see README)
+- `OIDC_SCOPES` - Optional, default `openid profile email`
 
 ---
 
@@ -617,8 +623,9 @@ curl http://localhost:8484/api/settings \
   "enablePlexUpdate": true,
   "tiddl_config": {
     "auth": {
-      "token": "...",
-      "refresh_token": "..."
+      "user_id": "123456",
+      "country_code": "US",
+      "expires_at": 1767225600
     },
     "format": {
       "quality": "high",
@@ -627,6 +634,8 @@ curl http://localhost:8484/api/settings \
   }
 }
 ```
+
+The Tidal access and refresh tokens are never returned, and secret parameters (`PLEX_TOKEN`, `JELLYFIN_API_KEY`, `GOTIFY_TOKEN`, `NTFY_TOKEN`, `NAVIDROME_PASSWORD`, `PUSH_OVER_URL`, credentials inside URLs) are shown as `****` when set.
 
 ---
 
@@ -640,7 +649,7 @@ SSE endpoint that initiates the Tidal device authentication flow. Opens a stream
 
 **Response:** `text/event-stream`
 
-**Note:** This endpoint is used by the web UI during initial Tidal setup. Events are streamed until authentication completes.
+**Note:** This endpoint is used by the web UI during initial Tidal setup. Events are streamed until authentication completes. It requires a login (JWT): the API key is not accepted.
 
 ---
 
@@ -648,8 +657,10 @@ SSE endpoint that initiates the Tidal device authentication flow. Opens a stream
 
 ```bash
 curl -X DELETE http://localhost:8484/api/token \
-  -H "X-Api-Key: your-api-key"
+  -H "Authorization: Bearer your-jwt-token"
 ```
+
+**Requires a login (JWT):** the API key is not accepted on this endpoint.
 
 **Response:** `204 No Content`
 
@@ -675,7 +686,7 @@ curl http://localhost:8484/api/tiddl/config \
 
 ```bash
 curl -X POST http://localhost:8484/api/tiddl/config \
-  -H "X-Api-Key: your-api-key" \
+  -H "Authorization: Bearer your-jwt-token" \
   -H 'Content-Type: application/json' \
   -d '{
     "toml": "[download]\nquality = \"max\"\nthreads = 8\n..."
@@ -689,6 +700,8 @@ curl -X POST http://localhost:8484/api/tiddl/config \
   "message": "Tiddl config saved successfully"
 }
 ```
+
+**Requires a login (JWT):** the API key is not accepted on this endpoint.
 
 ---
 
@@ -794,7 +807,7 @@ curl http://localhost:8484/api/custom-css \
 
 ```bash
 curl -X POST http://localhost:8484/api/custom-css \
-  -H "X-Api-Key: your-api-key" \
+  -H "Authorization: Bearer your-jwt-token" \
   -H 'Content-Type: application/json' \
   -d '{
     "css": "body { background-color: #1a1a1a; }"
@@ -808,6 +821,8 @@ curl -X POST http://localhost:8484/api/custom-css \
   "message": "Custom CSS saved successfully"
 }
 ```
+
+**Requires a login (JWT):** the API key is not accepted on this endpoint.
 
 ---
 
