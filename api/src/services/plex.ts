@@ -1,6 +1,7 @@
 // PLEX API
 // https://www.plexopedia.com/plex-media-server/api/library/scan-partial/
 
+import { MEDIA_SERVER_TIMEOUT_MS } from "../../constants";
 import { logs } from "../processing/utils/logs";
 import { ProcessingItemType } from "../types";
 
@@ -20,6 +21,7 @@ export async function uploadPlaylist(
   const response = await fetch(url, {
     method: "POST",
     headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(MEDIA_SERVER_TIMEOUT_MS),
   });
 
   if (response.status === 200) {
@@ -57,7 +59,9 @@ export async function plexUpdate(
       for (const folder of foldersToScan) {
         const folderPath = basePath ? `${basePath}/${folder}` : folder;
         const url = `${process.env.PLEX_URL}/library/sections/${process.env.PLEX_LIBRARY}/refresh?path=${encodeURIComponent(folderPath)}&X-Plex-Token=${process.env.PLEX_TOKEN}`;
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          signal: AbortSignal.timeout(MEDIA_SERVER_TIMEOUT_MS),
+        });
 
         if (response.status === 200) {
           scannedFolders.push(folder);

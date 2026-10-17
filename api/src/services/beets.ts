@@ -2,6 +2,10 @@ import { spawn } from "child_process";
 
 import { CONFIG_PATH, PROCESSING_PATH } from "../../constants";
 import { getAppInstance } from "../helpers/app-instance";
+import {
+  getPostProcessingTimeoutMs,
+  trackChildProcess,
+} from "../helpers/child-processes";
 import { logs } from "../processing/utils/logs";
 import { ProcessingItemType } from "../types";
 
@@ -24,6 +28,16 @@ function spawnBeet(
 
   return new Promise((resolve, reject) => {
     const beetProcess = spawn(binary, args);
+    const timeoutMs = getPostProcessingTimeoutMs();
+    trackChildProcess(beetProcess, {
+      itemId,
+      timeoutMs,
+      onTimeout: () =>
+        logs(
+          itemId,
+          `❌ [BEETS] ${command} still running after ${timeoutMs / 60000} min, stopping it (POST_PROCESSING_TIMEOUT_MINUTES).`,
+        ),
+    });
 
     beetProcess.stdout?.on("data", (data: Buffer) => {
       const stdout = data.toString("utf8");

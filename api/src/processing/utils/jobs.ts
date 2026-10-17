@@ -5,6 +5,7 @@ import { promisify } from "util";
 
 import { NZB_DOWNLOAD_PATH, PROCESSING_PATH } from "../../../constants";
 import { getAppInstance } from "../../helpers/app-instance";
+import { isRunning, terminate } from "../../helpers/child-processes";
 import { resolveInside } from "../../helpers/safe-id";
 import { ProcessingItemType } from "../../types";
 
@@ -179,6 +180,36 @@ export async function cleanFolder(
   } catch (e) {
     console.log(`❌ [TIDARR] Error cleaning folder:`, e);
     return "error";
+  }
+}
+
+/**
+ * Startup cleanup of the processing folder. Keeps the folders listed in
+ * `keepIds`: files of items whose move to the library failed, waiting for
+ * "Retry post-processing".
+ */
+export async function cleanProcessingFolderOnStartup(
+  keepIds: Set<string>,
+): Promise<void> {
+  if (!fs.existsSync(PROCESSING_PATH)) return;
+
+  try {
+    const targets = (await listVisibleEntries(PROCESSING_PATH)).filter(
+      (name) => !keepIds.has(name),
+    );
+    await Promise.all(
+      targets.map((name) =>
+        fs.promises.rm(path.join(PROCESSING_PATH, name), {
+          recursive: true,
+          force: true,
+        }),
+      ),
+    );
+    console.log(
+      `🧹 [TIDARR] Cleaned up processing folder${keepIds.size ? ` (kept ${keepIds.size} folder(s) waiting for a retry)` : ""}`,
+    );
+  } catch (e) {
+    console.log(`❌ [TIDARR] Error cleaning folder:`, e);
   }
 }
 
@@ -399,7 +430,8 @@ export async function killProcess(
   process: ChildProcess | undefined,
   itemId?: string,
 ): Promise<void> {
-  if (!process || process.killed) {
+  // `killed` only says a signal was sent, not that the process exited
+  if (!process || !isRunning(process)) {
     return;
   }
 
@@ -413,19 +445,11 @@ export async function killProcess(
     process.removeAllListeners("error");
     process.stdout?.removeAllListeners();
     process.stderr?.removeAllListeners();
+    // A failing kill() emits 'error': without a listener it would be thrown
+    process.on("error", () => {});
 
-    // Try graceful termination first
-    process.kill("SIGTERM");
-
-    // Wait 1 second, then force kill if still running
-    await new Promise<void>((resolve) => {
-      setTimeout(() => {
-        if (process && !process.killed) {
-          process.kill("SIGKILL");
-        }
-        resolve();
-      }, 1000);
-    });
+    // Graceful termination first, SIGKILL if still running after 1 second
+    await terminate(process, 1000);
   } catch (error) {
     console.error(`Failed to kill process${context}:`, error);
   }

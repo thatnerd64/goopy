@@ -1,6 +1,7 @@
 // NAVIDROME API
 // https://www.subsonic.org/pages/api.jsp (startScan endpoint)
 
+import { MEDIA_SERVER_TIMEOUT_MS } from "../../constants";
 import { logs } from "../processing/utils/logs";
 import { ProcessingItemType } from "../types";
 
@@ -27,7 +28,9 @@ export async function navidromeUpdate(item: ProcessingItemType) {
       });
 
       const url = `${baseUrl}/rest/startScan?${params.toString()}`;
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(MEDIA_SERVER_TIMEOUT_MS),
+      });
 
       if (response.ok) {
         const data = await response.json();

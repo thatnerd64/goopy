@@ -61,6 +61,11 @@ export class AtomicFileAdapter implements IAdapter<string> {
     return write;
   }
 
+  /** Resolves once every write requested so far has landed (or failed). */
+  whenIdle(): Promise<void> {
+    return this.writeChain;
+  }
+
   private async writeAtomically(data: string): Promise<void> {
     const dir = path.dirname(this.filename);
     const tmpPath = `${this.filename}.tmp-${process.pid}-${this.tmpCounter++}`;

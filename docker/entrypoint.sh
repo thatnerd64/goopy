@@ -66,18 +66,21 @@ if [ -n "$PUID" ] && [ -n "$PGID" ]; then
   # Set HOME to /shared for tiddl config access
   # Export UMASK as environment variable so Node.js can access it for setPermissions()
   # Set umask for any processes that respect it (tiddl/Python ignores shell umask)
+  # Node is exec'd directly (not through pnpm) so it receives docker stop's SIGTERM
   if [ "$ENVIRONMENT" = "development" ]; then
     exec su-exec $PUID:$PGID sh -c "export HOME=/shared && export UMASK=$EFFECTIVE_UMASK && umask $EFFECTIVE_UMASK && export CI=true && exec sh -c 'pnpm install && pnpm dev'"
   else
-    exec su-exec $PUID:$PGID sh -c "export HOME=/shared && export UMASK=$EFFECTIVE_UMASK && umask $EFFECTIVE_UMASK && exec pnpm --filter tidarr-api prod"
+    exec su-exec $PUID:$PGID sh -c "export HOME=/shared && export UMASK=$EFFECTIVE_UMASK && umask $EFFECTIVE_UMASK && cd /tidarr/api && exec node ./dist/index.js"
   fi
 else
   # Run as root (default)
+  # exec: Node must replace this shell (PID 1) to receive docker stop's SIGTERM
   if [ "$ENVIRONMENT" = "development" ]; then
     export CI=true
     pnpm install
-    pnpm dev
+    exec pnpm dev
   else
-    pnpm --filter tidarr-api prod
+    cd /tidarr/api
+    exec node ./dist/index.js
   fi
 fi

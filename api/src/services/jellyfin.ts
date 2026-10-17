@@ -1,6 +1,7 @@
 // JELLYFIN API
 // https://api.jellyfin.org/#tag/Library/operation/RefreshLibrary
 
+import { MEDIA_SERVER_TIMEOUT_MS } from "../../constants";
 import { logs } from "../processing/utils/logs";
 import { ProcessingItemType } from "../types";
 
@@ -20,7 +21,11 @@ export async function jellyfinUpdate(item: ProcessingItemType) {
       };
       const url = `${process.env.JELLYFIN_URL}/Library/Refresh`;
 
-      const response = await fetch(url, { method: "POST", headers });
+      const response = await fetch(url, {
+        method: "POST",
+        headers,
+        signal: AbortSignal.timeout(MEDIA_SERVER_TIMEOUT_MS),
+      });
 
       switch (response.status) {
         case 204:
