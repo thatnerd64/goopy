@@ -6,6 +6,7 @@ import {
   NZB_DOWNLOAD_PATH,
   PROCESSING_PATH,
 } from "../../constants";
+import { trackChildProcess } from "../helpers/child-processes";
 import { get_tiddl_config } from "../helpers/get_tiddl_config";
 import { extractFirstLineClean } from "../processing/utils/ansi-parse";
 import { logs } from "../processing/utils/logs";
@@ -91,6 +92,18 @@ export function tidalDL(id: string, app: Express, onFinish?: () => void) {
       TERM: "xterm-256color",
     },
   });
+  trackChildProcess(child, { itemId: item.id });
+
+  // 'close' also fires after 'error' (tiddl missing): report the end only once
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    // Let the queue manager take the download slot before updateItem() lets
+    // processQueue() look for a free one
+    if (onFinish) onFinish();
+    app.locals.processingStack.actions.updateItem(item);
+  };
 
   child.stdout?.setEncoding("utf8");
   let lastTotalProgress = "";
@@ -162,6 +175,8 @@ export function tidalDL(id: string, app: Express, onFinish?: () => void) {
   });
 
   child.on("close", async (code) => {
+    if (finished) return;
+
     const currentOutput = app.locals.processingStack.actions.getItemOutput(
       item.id,
     );
@@ -180,9 +195,7 @@ export function tidalDL(id: string, app: Express, onFinish?: () => void) {
     item["status"] = hasProcessingError ? "error" : item["status"];
     item["loading"] = false;
     item["networkError"] = hasNetworkError;
-    app.locals.processingStack.actions.updateItem(item);
-
-    if (onFinish) onFinish();
+    finish();
   });
 
   child.stderr?.setEncoding("utf8");
@@ -192,13 +205,13 @@ export function tidalDL(id: string, app: Express, onFinish?: () => void) {
   });
 
   child.on("error", (err) => {
-    if (err) {
-      logs(item.id, `❌ [TIDDL] Error: ${err}`);
-      item["status"] = "error";
-      item["loading"] = false;
-      app.locals.processingStack.actions.updateItem(item);
-      if (onFinish) onFinish();
-    }
+    if (finished) return;
+    logs(item.id, `❌ [TIDDL] Error: ${err}`);
+    item["status"] = "error";
+    item["loading"] = false;
+    // Not a network error: don't retry on a stale flag from a previous attempt
+    item["networkError"] = false;
+    finish();
   });
 
   return child;

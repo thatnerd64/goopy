@@ -202,9 +202,9 @@ router.get(
         0,
         parseInt(String(req.query.offset ?? 0), 10) || 0,
       );
-      const limit =
-        Math.max(1, parseInt(String(req.query.limit ?? 0), 10) || 0) ||
-        undefined;
+      // No (or an invalid) limit returns every item
+      const parsedLimit = parseInt(String(req.query.limit ?? ""), 10);
+      const limit = parsedLimit > 0 ? parsedLimit : undefined;
       const queue = limit
         ? all.slice(offset, offset + limit)
         : all.slice(offset);

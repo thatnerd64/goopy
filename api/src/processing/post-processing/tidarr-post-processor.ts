@@ -51,11 +51,21 @@ async function shouldPostProcess(
  * Performs Tidarr post-processing for downloaded items
  * @param item - The processing item
  * @param onComplete - Callback when post-processing completes
+ * @param isCancelled - Checked between steps: true once the item was removed
  */
 export async function postProcessTidarr(
   item: ProcessingItemType,
   onComplete: () => void,
+  isCancelled: () => boolean = () => false,
 ) {
+  // The item was removed meanwhile: stop before touching its files again
+  const stopIfCancelled = () => {
+    if (!isCancelled()) return false;
+    logs(item.id, "⏹️ [TIDARR] Post-processing cancelled.");
+    onComplete();
+    return true;
+  };
+
   logs(item.id, "---------------------");
   logs(item.id, "⚙️ POST PROCESSING   ");
   logs(item.id, "---------------------");
@@ -73,6 +83,17 @@ export async function postProcessTidarr(
 
   // Check if there are files to process
   const shouldProceed = await shouldPostProcess(item, processingPath);
+  if (!shouldProceed && item["errorStage"] === "post_processing") {
+    // Retry of a failed move whose files are gone: nothing reached the library
+    item["status"] = "error";
+    item["skipped"] = false;
+    logs(
+      item.id,
+      "❌ [TIDARR] The downloaded files are gone, download the item again.",
+    );
+    onComplete();
+    return;
+  }
   if (!shouldProceed) {
     // Restore "error" — shouldPostProcess defaults to "finished"
     if (wasDownloadError) {
@@ -85,21 +106,27 @@ export async function postProcessTidarr(
 
   // Update m3u item path (playlist/mix only — favorite_tracks M3U is written directly to library after move)
   await replacePathInM3U(item);
+  if (stopIfCancelled()) return;
 
   // Beets process
   await beets(item.id);
+  if (stopIfCancelled()) return;
 
   // Apply ReplayGain tags
   await applyReplayGain(item.id, `${PROCESSING_PATH}/${item.id}`);
+  if (stopIfCancelled()) return;
 
   // Set permissions
   await setPermissions(item);
+  if (stopIfCancelled()) return;
 
   // Execute custom script after tagging, before files are moved to the library
   await executeCustomScript(item);
+  if (stopIfCancelled()) return;
 
   // Keep trace of folders processed
   const foldersToScan = await getFolderToScan(item.id);
+  if (stopIfCancelled()) return;
 
   // Move to output folder
   const { status: moveStatus } = await moveAndClean(item.id);
@@ -112,6 +139,7 @@ export async function postProcessTidarr(
     onComplete();
     return;
   }
+  if (stopIfCancelled()) return;
 
   // Clean up temporary playlist if needed (mix only)
   const playlistId = (item as ProcessingItemWithPlaylist).playlistId;
@@ -160,6 +188,7 @@ export async function postProcessTidarr(
   } else {
     logs(item.id, "✅ [TIDARR] Post processing complete.");
     item["status"] = "finished";
+    item["errorStage"] = undefined;
   }
 
   // Trigger completion callback

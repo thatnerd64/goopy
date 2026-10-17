@@ -14,6 +14,7 @@ type AlbumItem = {
   id: number;
   title: string;
   explicit?: boolean;
+  type?: string;
   artist?: { name?: string };
   artists?: Array<{ name?: string }>;
 };
@@ -82,6 +83,7 @@ export async function getArtistAlbums(item: ProcessingItemType): Promise<void> {
       albums.map((album) => ({
         ...album,
         artist: albumArtist(album, item.artist),
+        releaseType: album.type,
       })),
       app.locals.processingStack.data,
       preference,
@@ -100,6 +102,7 @@ export async function getArtistAlbums(item: ProcessingItemType): Promise<void> {
       artist: album.artist,
       title: album.title,
       explicit: album.explicit,
+      releaseType: album.releaseType,
       quality: item.quality,
       error: false,
       source: "tidarr",

@@ -1,6 +1,9 @@
 import { getAppInstance } from "./app-instance";
 import { refreshTokenOnce } from "./refresh-token";
 
+// A hung Tidal request must not block the download queue forever
+const TIDAL_REQUEST_TIMEOUT_MS = 60_000;
+
 /**
  * Fetch Tidal API with automatic token refresh on 401.
  * Shared helper used across mix-to-playlist, favorite-tracks, and lidarr.
@@ -15,7 +18,11 @@ export async function fetchTidalWithRefresh(
   const makeRequest = (authToken: string) => {
     const headers = new Headers(options.headers as HeadersInit);
     headers.set("Authorization", `Bearer ${authToken}`);
-    return fetch(url, { ...options, headers });
+    return fetch(url, {
+      signal: AbortSignal.timeout(TIDAL_REQUEST_TIMEOUT_MS),
+      ...options,
+      headers,
+    });
   };
 
   let response = await makeRequest(token);

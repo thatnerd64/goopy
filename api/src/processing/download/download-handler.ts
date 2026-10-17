@@ -78,6 +78,18 @@ export async function handleDownload(
   // Handle mix type: convert to playlist first
   if (item.type === "mix") {
     playlistId = await prepareMixToPlaylist(item);
+
+    // Paused or removed while the playlist was being prepared: don't start
+    // tiddl, the item is downloaded again from scratch when it comes back
+    // (pauseQueue() puts the item back to "queue_download")
+    const stillWanted =
+      item.status !== "queue_download" &&
+      app.locals.processingStack.actions.getItem(item.id) === item;
+    if (!stillWanted) {
+      if (playlistId) deletePlaylist(playlistId, item.id);
+      return;
+    }
+
     if (!playlistId) {
       // Go through onComplete so the queue manager's error handling applies
       onComplete();

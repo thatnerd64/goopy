@@ -4,6 +4,10 @@ import path from "path";
 
 import { CONFIG_PATH, PROCESSING_PATH } from "../../constants";
 import { getAppInstance } from "../helpers/app-instance";
+import {
+  getPostProcessingTimeoutMs,
+  trackChildProcess,
+} from "../helpers/child-processes";
 import { logs } from "../processing/utils/logs";
 import { ProcessingItemType } from "../types";
 
@@ -38,6 +42,16 @@ async function runScript(
         const scriptProcess = spawn("sh", [scriptPath], {
           cwd,
           env: { ...process.env, ...env },
+        });
+        const timeoutMs = getPostProcessingTimeoutMs();
+        trackChildProcess(scriptProcess, {
+          itemId: item.id,
+          timeoutMs,
+          onTimeout: () =>
+            logs(
+              item.id,
+              `❌ [TIDARR] ${scriptName} still running after ${timeoutMs / 60000} min, stopping it (POST_PROCESSING_TIMEOUT_MINUTES).`,
+            ),
         });
 
         const handleOutput = (data: Buffer) => {

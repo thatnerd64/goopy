@@ -7,8 +7,21 @@ import { logs } from "../processing/utils/logs";
  * and delay-based auto-resume (DOWNLOAD_BATCH_DELAY in minutes).
  */
 
+let warnedInvalidBatchSize = false;
+
 export function getBatchSize(): number {
-  return parseInt(process.env.DOWNLOAD_BATCH_SIZE || "0", 10);
+  const raw = process.env.DOWNLOAD_BATCH_SIZE || "0";
+  const size = parseInt(raw, 10);
+  if (Number.isNaN(size) || size < 0) {
+    if (!warnedInvalidBatchSize) {
+      warnedInvalidBatchSize = true;
+      console.warn(
+        `⚠️ [BATCH] Invalid DOWNLOAD_BATCH_SIZE "${raw}" (expected a positive number): batch pause disabled.`,
+      );
+    }
+    return 0;
+  }
+  return size;
 }
 
 /**

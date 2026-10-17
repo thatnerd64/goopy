@@ -664,6 +664,14 @@ You can also install additional Python packages by placing a **`requirements.txt
 >
 > 📖 [View complete documentation](docs/CUSTOM_SCRIPT_DOCUMENTATION.md)
 
+Each post-processing program (Beets, rsgain, custom scripts) is stopped if it runs longer than **`POST_PROCESSING_TIMEOUT_MINUTES`** (default `60`, `0` disables the limit), so a stuck script cannot block the queue:
+
+```yaml
+environment:
+  - ...
+  - POST_PROCESSING_TIMEOUT_MINUTES=120
+```
+
 ### NO DOWNLOAD
 
 If you want to use Tidarr only as UI and not download files, you can set `NO_DOWNLOAD=true` in the environment variables.

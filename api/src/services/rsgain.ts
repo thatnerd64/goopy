@@ -1,6 +1,10 @@
 import { spawn } from "child_process";
 
 import { getAppInstance } from "../helpers/app-instance";
+import {
+  getPostProcessingTimeoutMs,
+  trackChildProcess,
+} from "../helpers/child-processes";
 import { logs } from "../processing/utils/logs";
 
 /**
@@ -20,18 +24,29 @@ export async function applyReplayGain(
   }
 
   logs(itemId, `🕖 [RSGAIN] Analyzing and tagging files in: ${folderPath}`);
-  app.locals.processingStack.actions.updateItem(itemId);
+  const item = app.locals.processingStack.actions.getItem(itemId);
+  if (item) app.locals.processingStack.actions.updateItem(item);
 
   return new Promise((resolve) => {
     try {
       // Run rsgain easy mode (automatically handles album mode with recursive scan)
-      const rsgainProcess = spawn(
-        "rsgain",
-        ["easy", "-S", "-m", "4", folderPath],
-        {
-          shell: "/bin/sh",
-        },
-      );
+      const rsgainProcess = spawn("rsgain", [
+        "easy",
+        "-S",
+        "-m",
+        "4",
+        folderPath,
+      ]);
+      const timeoutMs = getPostProcessingTimeoutMs();
+      trackChildProcess(rsgainProcess, {
+        itemId,
+        timeoutMs,
+        onTimeout: () =>
+          logs(
+            itemId,
+            `⚠️ [RSGAIN] Still running after ${timeoutMs / 60000} min, stopping it (POST_PROCESSING_TIMEOUT_MINUTES).`,
+          ),
+      });
 
       let errorOutput = "";
 

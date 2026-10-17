@@ -15,6 +15,7 @@ type FavoriteAlbumItem = {
     id: number;
     title: string;
     explicit?: boolean;
+    type?: string;
     artist?: { name?: string };
     artists?: Array<{ name?: string }>;
   };
@@ -56,6 +57,7 @@ export async function getFavoriteAlbums(
           id: album.id,
           title: album.title,
           explicit: album.explicit,
+          releaseType: album.type,
           artist: album.artists?.[0]?.name || album.artist?.name || "",
         })),
       app.locals.processingStack.data,
@@ -75,6 +77,7 @@ export async function getFavoriteAlbums(
       artist: album.artist,
       title: album.title,
       explicit: album.explicit,
+      releaseType: album.releaseType,
       quality: item.quality,
       error: false,
       source: "tidarr",

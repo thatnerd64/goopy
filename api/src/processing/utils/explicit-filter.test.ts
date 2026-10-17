@@ -147,6 +147,34 @@ describe("selectEditions", () => {
     ]);
   });
 
+  it("keeps an album and a same-title single or EP apart", () => {
+    const albumClean = {
+      ...album(20, "Nevermind", false),
+      releaseType: "ALBUM",
+    };
+    const singleExplicit = {
+      ...album(21, "Nevermind", true),
+      releaseType: "SINGLE",
+    };
+    const ep = { ...album(22, "Nevermind", false), releaseType: "EP" };
+    expect(
+      selectEditions([albumClean, singleExplicit, ep], "explicit").selected,
+    ).toEqual([albumClean, singleExplicit, ep]);
+  });
+
+  it("still picks one edition among releases of the same type", () => {
+    const clean = { ...album(23, "To Pimp", false), releaseType: "ALBUM" };
+    const explicit = { ...album(24, "To Pimp", true), releaseType: "album" };
+    expect(selectEditions([clean, explicit], "explicit").selected).toEqual([
+      explicit,
+    ]);
+  });
+
+  it("does not throw on a missing title", () => {
+    const untitled = { id: 25, explicit: false, artist: "A" };
+    expect(selectEditions([untitled], "explicit").selected).toEqual([untitled]);
+  });
+
   it('keeps every edition with "both", only collapsing duplicate ids', () => {
     expect(selectEditions([clean, explicit, clean], "both").selected).toEqual([
       clean,
@@ -172,6 +200,22 @@ describe("excludeQueuedEditions", () => {
     expect(
       excludeQueuedEditions([explicit], [queued("2", "DAMN.")], "explicit")
         .selected,
+    ).toEqual([explicit]);
+  });
+
+  it("keeps a single whose title matches a queued album", () => {
+    const single = { ...album(3, "DAMN.", true), releaseType: "SINGLE" };
+    const queuedAlbum = { ...queued("1", "DAMN."), releaseType: "ALBUM" };
+    expect(
+      excludeQueuedEditions([single], [queuedAlbum], "explicit").selected,
+    ).toEqual([single]);
+  });
+
+  it("matches a manually queued album whose release type is unknown", () => {
+    const explicit = { ...album(2, "DAMN.", true), releaseType: "ALBUM" };
+    expect(
+      excludeQueuedEditions([explicit], [queued("1", "DAMN.")], "explicit")
+        .skipped,
     ).toEqual([explicit]);
   });
 

@@ -11,8 +11,9 @@ vi.mock("child_process", () => ({
 vi.mock("../helpers/get_tiddl_config", () => ({
   get_tiddl_config: () => ({ config: {}, errors: [] }),
 }));
+vi.mock("../processing/utils/logs", () => ({ logs: vi.fn() }));
 
-import { tidalToken } from "./tiddl";
+import { tidalDL, tidalToken } from "./tiddl";
 
 function fakeChild() {
   const child = new EventEmitter() as EventEmitter & {
@@ -20,8 +21,8 @@ function fakeChild() {
     stderr: EventEmitter;
     kill: () => void;
   };
-  child.stdout = new EventEmitter();
-  child.stderr = new EventEmitter();
+  child.stdout = Object.assign(new EventEmitter(), { setEncoding: vi.fn() });
+  child.stderr = Object.assign(new EventEmitter(), { setEncoding: vi.fn() });
   child.kill = vi.fn();
   return child;
 }
@@ -79,5 +80,68 @@ describe("tidalToken", () => {
     child.stdout.emit("data", Buffer.from("Go to https://link.tidal.com/AAAA"));
 
     expect(written.join("")).toContain("https://link.tidal.com/AAAA");
+  });
+});
+
+describe("tidalDL", () => {
+  function fakeApp(item: Record<string, unknown>) {
+    const updateItem = vi.fn();
+    const app = {
+      locals: {
+        tiddlConfig: {},
+        processingStack: {
+          actions: {
+            getItem: () => item,
+            getItemOutput: () => "",
+            updateItem,
+          },
+        },
+      },
+    };
+    return { app, updateItem };
+  }
+
+  it("reports the end once when tiddl cannot be started", () => {
+    const child = fakeChild();
+    spawnMock.mockReturnValue(child);
+    // A network error flag left over from a previous attempt
+    const item = {
+      id: "123",
+      type: "album",
+      url: "album/123",
+      status: "download",
+      networkError: true,
+    };
+    const { app, updateItem } = fakeApp(item);
+    const onFinish = vi.fn();
+
+    tidalDL("123", app as never, onFinish);
+    child.emit("error", new Error("spawn tiddl ENOENT"));
+    child.emit("close", -2);
+
+    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(updateItem).toHaveBeenCalledTimes(1);
+    expect(item.status).toBe("error");
+    // Not retried as a network error
+    expect(item.networkError).toBe(false);
+  });
+
+  it("lets the queue manager take the slot before announcing the end", () => {
+    const child = fakeChild();
+    spawnMock.mockReturnValue(child);
+    const item = {
+      id: "123",
+      type: "album",
+      url: "album/123",
+      status: "download",
+    };
+    const { app, updateItem } = fakeApp(item);
+    const order: string[] = [];
+    updateItem.mockImplementation(() => order.push("updateItem"));
+
+    tidalDL("123", app as never, () => order.push("onFinish"));
+    child.emit("close", 1);
+
+    expect(order).toEqual(["onFinish", "updateItem"]);
   });
 });

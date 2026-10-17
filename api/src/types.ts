@@ -34,6 +34,7 @@ export type ProcessingItemType = {
   loading: boolean;
   error: boolean;
   explicit?: boolean; // Tidal explicit flag (albums/tracks), used to pick one edition per album
+  releaseType?: string; // Tidal album type (ALBUM, EP, SINGLE), same purpose
   process?: ChildProcess;
   retryCount?: number;
   networkError?: boolean;

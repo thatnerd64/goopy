@@ -1,6 +1,7 @@
 import { TIDAL_API_URL } from "../../../constants";
 import { getAppInstance } from "../../helpers/app-instance";
 import { fetchTidalWithRefresh } from "../../helpers/fetch-tidal";
+import { isInFlight } from "../../helpers/item-status";
 import { TidalAlbum, TidalSearchResponse } from "../../types";
 
 import { getAlbumArtist, mapQualityToTiddl } from "./lidarr";
@@ -86,7 +87,17 @@ export async function addAlbumToQueue(
       source: "lidarr" as const,
     };
 
-    // addItem already replaces any existing item with the same id internally
+    // Replacing an item still in progress would kill its download or delete
+    // the files waiting for post-processing: keep it
+    const existing = app.locals.processingStack.actions.getItem(id);
+    if (isInFlight(existing)) {
+      console.log(
+        `ℹ️ [Lidarr] "${albumData.title}" (${id}) is already in the queue.`,
+      );
+      return;
+    }
+
+    // addItem replaces a finished/failed item with the same id internally
     await app.locals.processingStack.actions.addItem(processingItem);
 
     console.log(
